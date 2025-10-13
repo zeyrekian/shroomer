@@ -1,0 +1,231 @@
+Description={
+    "Axe": "Move to a tree to cut it down.",
+    "Flamethrower": "Move to a tree to burn it and all nearby trees."
+    }
+
+# Readability of r,c functions
+(r,c)=(0,1)
+
+# Obtain a graphic as: Tileset["Graphic"]
+CharTileset={
+    "Floor":        '.',
+    "Player":       'L',
+    "Tree":         'T',
+    "Mushroom":     '+',
+    "Rock":         'R',
+    "Water":        '~',
+    "Paved":        '_',
+    "Axe":          'x',
+    "Flamethrower": '*'}
+
+AsciiTileset={
+    "Floor":        ' ',
+    "Player":       '🧑',
+    "Tree":         '🌲',
+    "Mushroom":     '🍄',
+    "Rock":         '🪨',
+    "Water":        '🟦',
+    "Paved":        '□',
+    "Axe":          '🪓',
+    "Flamethrower": '🔥'}
+
+# Include all valid keys in its controls tuple
+Up=     ('w','u')
+Left=   ('a','l')
+Right=  ('s',)
+Down=   ('d','r')
+Pickup= ('p',)
+Reset=  ('!',)
+
+Valid = Up+Left+Right+Down+Pickup+Reset
+
+
+
+level1=["TTTTTTTTT",
+"T...+...T",
+"T...~...T",
+"T...R.T.T",
+"T.T.LTT.T",
+"T.x...*.T",
+"T.......T",
+"T.......T",
+"TTTTTTTTT"]
+
+# String grid (list of strings):
+    # levels are stored (.txt) and displayed this way
+    
+# Tile grid (list of list of chars):
+    # used as the game is running to quickly edit tiles
+
+
+def StringGridToTileGrid(grid):
+    for i in range(len(grid)):
+        grid[i] = list(t for t in grid[i])
+    return grid
+
+def TileGridToStringGrid(grid):
+    return list("".join(grid[i]) for i in range(len(grid)))
+        
+
+# ex. get all Rock positions: FindAll(Grid, Tileset["Rock"])
+def FindAll(grid, item):
+    positions=[]
+    for i in range(len(grid)):
+        for j in range(len(grid[0])):
+            if grid[i][j] in item:
+                positions.append( [i,j] )
+    return positions
+
+def Play(InitialGrid):
+    # Convert from string grid to tile grid
+    # Save the initial grid data for resets
+    InitialGrid = StringGridToTileGrid(InitialGrid)
+    Grid = InitialGrid
+    GridWidth, GridHeight = (len(Grid[0]), len(Grid))
+
+    # Chosen tileset 
+    Tileset = CharTileset
+
+    # The player is stored as their coordinates
+    # The actual grid data is 'playerless',
+    # but the player coordinates are always valid (on top of floor/paved)
+    # to check for being on top of items and to keep paved tiles
+    PlayerPosition = FindAll(Grid, Tileset["Player"])[0]
+    Grid [PlayerPosition[r]] [PlayerPosition[c]] = Tileset["Floor"]
+
+    # Rocks can be pushed on top of paved tiles
+    # So we can use the same methods to make the grid data 'rockless'
+    # and ensure rock and player positions are always valid
+    RockPositions = FindAll(Grid, Tileset["Rock"])
+    for RockPosition in RockPositions:
+        Grid [RockPosition[r]] [RockPosition[c]] = Tileset["Floor"]
+    
+    IsComplete = False
+    MushroomsCollected = 0
+    MaxMushrooms = len(FindAll(Grid, Tileset["Mushroom"]))
+    
+    HeldItem = None
+    OnTopOfItem = None
+
+    while not IsComplete:
+        
+        # Display the grid
+        for i in range(0, GridHeight):
+            for j in range(0, GridWidth):
+
+                # Display player
+                if [i,j] == PlayerPosition:
+                    print(Tileset["Player"],end="")
+                    
+                    # Check for items
+                    if Grid[i][j] == Tileset["Axe"]:
+                        OnTopOfItem = "Axe"
+                    elif Grid[i][j] == Tileset["Flamethrower"]:
+                        OnTopOfItem = "Flamethrower"
+                    else:
+                        OnTopOfItem = None
+
+                # Display everything else as is
+                else:
+                    print(Grid[i][j], end="")
+            print("\n",end="")
+
+        print("\nCollected ", MushroomsCollected," shrooms")
+        
+        if HeldItem != None:
+            print("Holding ", HeldItem)
+            print("\t[", Descriptions[HeldItem], "]")
+
+        print("[WASD] Move")
+        if OnTopOfItem != None:
+            if HeldItem == None:
+                print("[P] Pick up ", OnTopOfItem.lower())
+            else:
+                print("On top of ", OnTopOfItem.lower())
+
+
+        PrintInputDebug=False 
+        # Input
+        print("\nwhat now: ",end="")
+        input_is_valid = False
+        while not input_is_valid:
+            input_is_valid = True
+            steps = list(i.lower() for i in input())
+
+            # check input is valid
+            for step in steps:
+                if step not in Valid:
+                    input_is_valid = False
+                    break
+            
+            if input_is_valid and '!' in steps:
+                i=steps.index('!')
+                steps = steps[i:]
+        print("")
+        
+        # for each step in input: apply, check state after
+        for Step in steps:
+
+            if Step in Reset:
+                pass
+
+            elif Step in Pickup:
+                pass
+
+            else:
+                TargetTile = PlayerPosition
+                AheadOfTargetTile = PlayerPosition
+
+                # To not have 4 copies, the code works independent of direction
+                # Player moves to a "target tile", considering the tile "ahead" of it
+                # We find the target tiles by modifying player position
+                # ex. to move up, the target tile is player position, but y-1 or row number minus 1
+                
+                if Step in Up:
+                    TargetTile[r] -= 1
+                    AheadOfTargetTile[r] -= 2
+                    
+                elif Step in Down:
+                    TargetTile[r] += 1
+                    AheadOfTargetTile[r] += 2
+                    
+                elif Step in Right:
+                    TargetTile[c] += 1
+                    AheadOfTargetTile[c] += 2
+
+                elif Step in Left:
+                    TargetTile[c] -= 1
+                    AheadOfTargetTile[c] -= 2
+
+                
+                TargetTileGraphic = Grid[TargetTile[r]] [TargetTile[c]]
+                AheadOfTargetTileGraphic = Grid[AheadOfTargetTile[r]] [AheadOfTargetTile[c]]
+
+
+
+                # Attempting to push a rock
+                if TargetTile in RockPositions:
+
+                    # Onto floor or paved tile
+                    if AheadOfTargetTileGraphic in [Tileset["Floor"], Tileset["Paved"]]:
+                        pass
+                    # Into water
+                    if AheadOfTargetTileGraphic == Tileset["Water"]:
+                        pass
+
+                                # To a floor or paved tile (move as normal)
+                elif TargetTileGraphic in [Tileset["Floor"], Tileset["Paved"]]:
+                    PlayerPosition = TargetTile
+                    
+            # Steps fail if:
+                # target tile is <0 or =r,c
+                # target tile is a tree, itemless
+                # target tile is a rock and:
+                    # +1 of target tile is <0 or =r,c
+                    # +1 of target tile is not floor, paved, water
+
+            # Steps pass if:
+                # target tile is a floor, paved
+                # target tile is a rock and +1 target tile is floor, paved, water
+ 
+Play(level1)
