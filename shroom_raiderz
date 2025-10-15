@@ -10,6 +10,8 @@ def main():
 
     with open(sys.argv[1], encoding='utf-8') as File:
         Level = File.readlines()
+        for i in range(len(Level)-1):
+            Level[i] = Level[i][0:-1]
         Play(Level)
         return
 
@@ -350,5 +352,4 @@ def Play(InitialGrid):
         if MushroomsCollected == MaxMushrooms:
             IsComplete=True
     print("either u've collected all shrooms or u fell into water if u see this...")
-
-# TO DO: pushing rocks when the ahead-of-target-tile is out of bounds, player going out of bounds
+main()
