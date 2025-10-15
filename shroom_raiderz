@@ -1,3 +1,20 @@
+import os
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+import sys
+def main():
+    if len(sys.argv) < 2:
+        print("No level loaded.")
+        return
+
+    with open(sys.argv[1], encoding='utf-8') as File:
+        Level = File.readlines()
+        Play(Level)
+        return
+
+from time import sleep
+ 
 Description={
     "Axe": "Move to a tree to cut it down.",
     "Flamethrower": "Move to a tree to burn it and all nearby trees."
@@ -6,8 +23,16 @@ Description={
 # Readability of r,c functions
 (r,c)=(0,1)
 
-# Obtain a graphic as: Tileset["Graphic"]
-CharTileset={
+Ascii={
+    ".":    "Floor",
+    "L":    "Player",
+    "T":    "Tree",
+    "+":    "Mushroom",
+    "R":    "Rock",
+    "~":    "Water",
+    "_":    "Paved",
+    "x":    "Axe",
+    "*":    "Flamethrower",
     "Floor":        '.',
     "Player":       'L',
     "Tree":         'T',
@@ -18,38 +43,36 @@ CharTileset={
     "Axe":          'x',
     "Flamethrower": '*'}
 
-AsciiTileset={
-    "Floor":        ' ',
-    "Player":       '🧑',
-    "Tree":         '🌲',
-    "Mushroom":     '🍄',
-    "Rock":         '🪨',
-    "Water":        '🟦',
-    "Paved":        '□',
-    "Axe":          '🪓',
+# Use to get graphics and to convert ASCII to UI
+Ui={
+    ".": '  ',
+    "L": '🧑',
+    "T": '🌲',
+    "+": '🍄',
+    "R": '🪨',
+    "~": '🟦',
+    "_": '□',
+    "x": '🪓',
+    "*": '🔥',
+    "Floor": ' ',
+    "Player": '🧑',
+    "Tree": '🌲',
+    "Mushroom": '🍄',
+    "Rock": '🪨',
+    "Water": '🟦',
+    "Paved": '  ',
+    "Axe": '🪓',
     "Flamethrower": '🔥'}
 
 # Include all valid keys in its controls tuple
-Up=     ('w','u')
-Left=   ('a','l')
-Right=  ('s',)
-Down=   ('d','r')
+Up=     ('w','u') + ('i',)
+Left=   ('a','l') + ('j',)
+Down=  ('s',)   + ('k',)
+Right=   ('d','r') + ('l',)
 Pickup= ('p',)
 Reset=  ('!',)
 
 Valid = Up+Left+Right+Down+Pickup+Reset
-
-
-
-level1=["TTTTTTTTT",
-"T...+...T",
-"T...~...T",
-"T...R.T.T",
-"T.T.LTT.T",
-"T.x...*.T",
-"T.......T",
-"T.......T",
-"TTTTTTTTT"]
 
 # String grid (list of strings):
     # levels are stored (.txt) and displayed this way
@@ -67,14 +90,59 @@ def TileGridToStringGrid(grid):
     return list("".join(grid[i]) for i in range(len(grid)))
         
 
-# ex. get all Rock positions: FindAll(Grid, Tileset["Rock"])
+# ex. get all Rock positions: FindAll(Grid, Ascii["Player"])
+# Must be a tile grid
 def FindAll(grid, item):
     positions=[]
     for i in range(len(grid)):
         for j in range(len(grid[0])):
-            if grid[i][j] in item:
-                positions.append( [i,j] )
+            if grid[i][j] == item:
+                positions.append( (i,j) )
     return positions
+
+# Recursively check a tree's neighbors for other trees
+# in order to burn them: modifies the grid data
+def BurnTrees(grid, positions):
+    next_positions=[]
+    for position in positions:
+        (i,j)=position
+        if grid[i][j] == Ascii["Tree"]:
+            grid[i][j] = Ascii["Floor"]
+
+            if i>0:
+                if grid[i-1][j] == Ascii["Tree"]:
+                    next_positions.append( (i-1,j) )
+
+            if i<len(grid)-1:
+                if grid[i+1][j] == Ascii["Tree"]:
+                    next_positions.append( (i+1,j) )
+
+            if j>0:
+                if grid[i][j-1] == Ascii["Tree"]:
+                    next_positions.append( (i,j-1) )
+
+            if j<len(grid[0])-1:
+                if grid[i][j+1] == Ascii["Tree"]:
+                    next_positions.append( (i,j+1) )
+
+    if next_positions!=[]:
+        return BurnTrees(grid, next_positions)
+    else:
+        return grid
+    
+
+# Many underlying code kinda hurts my eyes so I abstracted a lot of them here
+
+# Would otherwise look like grid[pos[r]][pos[c]] but eugh
+# Used to check valid rock and player moves
+def GetGraphicAt(grid, position):
+    (r,c)=position
+    return grid[r][c]
+
+def Offset(position, offset):
+    (r,c)=offset
+    return (position[0]+r, position[1]+c)
+    
 
 def Play(InitialGrid):
     # Convert from string grid to tile grid
@@ -83,70 +151,73 @@ def Play(InitialGrid):
     Grid = InitialGrid
     GridWidth, GridHeight = (len(Grid[0]), len(Grid))
 
-    # Chosen tileset 
-    Tileset = CharTileset
-
     # The player is stored as their coordinates
     # The actual grid data is 'playerless',
     # but the player coordinates are always valid (on top of floor/paved)
     # to check for being on top of items and to keep paved tiles
-    PlayerPosition = FindAll(Grid, Tileset["Player"])[0]
-    Grid [PlayerPosition[r]] [PlayerPosition[c]] = Tileset["Floor"]
+    PlayerPosition = FindAll(Grid, Ascii["Player"])[0]
+    Grid [PlayerPosition[r]] [PlayerPosition[c]] = Ascii["Floor"]
 
     # Rocks can be pushed on top of paved tiles
     # So we can use the same methods to make the grid data 'rockless'
     # and ensure rock and player positions are always valid
-    RockPositions = FindAll(Grid, Tileset["Rock"])
+    RockPositions = FindAll(Grid, Ascii["Rock"])
     for RockPosition in RockPositions:
-        Grid [RockPosition[r]] [RockPosition[c]] = Tileset["Floor"]
+        Grid [RockPosition[r]] [RockPosition[c]] = Ascii["Floor"]
     
     IsComplete = False
     MushroomsCollected = 0
-    MaxMushrooms = len(FindAll(Grid, Tileset["Mushroom"]))
+    MaxMushrooms = len(FindAll(Grid, Ascii["Mushroom"]))
     
     HeldItem = None
     OnTopOfItem = None
 
     while not IsComplete:
+        clear()
         
         # Display the grid
         for i in range(0, GridHeight):
             for j in range(0, GridWidth):
 
                 # Display player
-                if [i,j] == PlayerPosition:
-                    print(Tileset["Player"],end="")
+                if (i,j) == PlayerPosition:
+                    print(Ui["Player"],end="")
                     
                     # Check for items
-                    if Grid[i][j] == Tileset["Axe"]:
+                    if Grid[i][j] == Ascii["Axe"]:
                         OnTopOfItem = "Axe"
-                    elif Grid[i][j] == Tileset["Flamethrower"]:
+                    elif Grid[i][j] == Ascii["Flamethrower"]:
                         OnTopOfItem = "Flamethrower"
                     else:
                         OnTopOfItem = None
 
+                # Display rocks
+                elif (i,j) in RockPositions:
+                    print(Ui["Rock"],end="")
+
                 # Display everything else as is
                 else:
-                    print(Grid[i][j], end="")
+                    print(Ui[Grid[i][j]], end="")
             print("\n",end="")
 
-        print("\nCollected ", MushroomsCollected," shrooms")
+        print("\nCollected ", MushroomsCollected," shrooms ["+Ascii["Mushroom"]+"]")
         
         if HeldItem != None:
             print("Holding ", HeldItem)
-            print("\t[", Descriptions[HeldItem], "]")
+            print("\t[", Description[HeldItem], "]")
 
         print("[WASD] Move")
         if OnTopOfItem != None:
             if HeldItem == None:
-                print("[P] Pick up ", OnTopOfItem.lower())
+                print("[P"+Ascii[OnTopOfItem]+"] Pick up ", OnTopOfItem.lower())
             else:
-                print("On top of ", OnTopOfItem.lower())
+                print("["+Ascii[OnTopOfItem]+"] On top of ", OnTopOfItem.lower())
 
+        print("player at",PlayerPosition)
 
         PrintInputDebug=False 
         # Input
-        print("\nwhat now: ",end="")
+        print("\nMake move/s: ",end="")
         input_is_valid = False
         while not input_is_valid:
             input_is_valid = True
@@ -157,11 +228,9 @@ def Play(InitialGrid):
                 if step not in Valid:
                     input_is_valid = False
                     break
-            
-            if input_is_valid and '!' in steps:
-                i=steps.index('!')
-                steps = steps[i:]
+        
         print("")
+        print(steps)
         
         # for each step in input: apply, check state after
         for Step in steps:
@@ -170,7 +239,10 @@ def Play(InitialGrid):
                 pass
 
             elif Step in Pickup:
-                pass
+                if (HeldItem == None) and (OnTopOfItem != None):
+                    (i,j) = PlayerPosition
+                    HeldItem = OnTopOfItem
+                    Grid[i][j] = Ascii["Floor"]
 
             else:
                 TargetTile = PlayerPosition
@@ -182,50 +254,101 @@ def Play(InitialGrid):
                 # ex. to move up, the target tile is player position, but y-1 or row number minus 1
                 
                 if Step in Up:
-                    TargetTile[r] -= 1
-                    AheadOfTargetTile[r] -= 2
+                    TargetTile = Offset(PlayerPosition, (-1,0))
+                    AheadOfTargetTile = Offset(PlayerPosition, (-2,0))
                     
                 elif Step in Down:
-                    TargetTile[r] += 1
-                    AheadOfTargetTile[r] += 2
+                    TargetTile = Offset(PlayerPosition, (1,0))
+                    AheadOfTargetTile = Offset(PlayerPosition, (2,0))
                     
                 elif Step in Right:
-                    TargetTile[c] += 1
-                    AheadOfTargetTile[c] += 2
+                    TargetTile = Offset(PlayerPosition, (0,1))
+                    AheadOfTargetTile = Offset(PlayerPosition, (0,2))
 
                 elif Step in Left:
-                    TargetTile[c] -= 1
-                    AheadOfTargetTile[c] -= 2
+                    TargetTile = Offset(PlayerPosition, (0,-1))
+                    AheadOfTargetTile = Offset(PlayerPosition, (0,-2))
+
+
+                GoOutOfBounds=True
+                if 0<=TargetTile[0]<GridHeight and 0<=TargetTile[1]<GridWidth:
+                    GoOutOfBounds=False
+
+                if GoOutOfBounds:
+                    continue
+
+                PushOutOfBounds=True
+                if 0<=TargetTile[0]<GridHeight and 0<=TargetTile[1]<GridWidth:
+                    PushOutOfBounds=False
 
                 
-                TargetTileGraphic = Grid[TargetTile[r]] [TargetTile[c]]
-                AheadOfTargetTileGraphic = Grid[AheadOfTargetTile[r]] [AheadOfTargetTile[c]]
+                TargetTileGraphic = GetGraphicAt(Grid, TargetTile)
+                AheadOfTargetTileGraphic=None
+                (i,j) = AheadOfTargetTile
+                if 0<=i<GridHeight and 0<=j<GridWidth:
+                    AheadOfTargetTileGraphic = GetGraphicAt(Grid, AheadOfTargetTile)
 
-
-
-                # Attempting to push a rock
+                # Attempting to push a rock...
                 if TargetTile in RockPositions:
 
-                    # Onto floor or paved tile
-                    if AheadOfTargetTileGraphic in [Tileset["Floor"], Tileset["Paved"]]:
-                        pass
-                    # Into water
-                    if AheadOfTargetTileGraphic == Tileset["Water"]:
-                        pass
+                    PushIntoAnotherRock = AheadOfTargetTile in RockPositions
+                    PushIntoUnpushable = GetGraphicAt(Grid, AheadOfTargetTile) in [Ascii["Tree"], Ascii["Rock"], Ascii["Mushroom"], Ascii["Axe"], Ascii["Flamethrower"]]
 
-                                # To a floor or paved tile (move as normal)
-                elif TargetTileGraphic in [Tileset["Floor"], Tileset["Paved"]]:
-                    PlayerPosition = TargetTile
+                    # ...onto another rock
+                    if PushIntoAnotherRock or PushIntoUnpushable:
+                        continue
+
+                    # ...onto floor or paved tile
+                    elif AheadOfTargetTileGraphic in [Ascii["Floor"], Ascii["Paved"]]:
+                        MovedRock = RockPositions.index(TargetTile)
+                        RockPositions[MovedRock] = AheadOfTargetTile
+                        PlayerPosition = TargetTile
                     
-            # Steps fail if:
-                # target tile is <0 or =r,c
-                # target tile is a tree, itemless
-                # target tile is a rock and:
-                    # +1 of target tile is <0 or =r,c
-                    # +1 of target tile is not floor, paved, water
+                    # ...into water
+                    elif GetGraphicAt(Grid, AheadOfTargetTile) == Ascii["Water"]:
+                        (i,j) = AheadOfTargetTile
+                        Grid[i][j] = Ascii["Paved"]
 
-            # Steps pass if:
-                # target tile is a floor, paved
-                # target tile is a rock and +1 target tile is floor, paved, water
- 
-Play(level1)
+                        RemovedRock = RockPositions.index(TargetTile)
+                        PlayerPosition = RockPositions.pop(RemovedRock)
+
+                    else:
+                        pass
+
+                # Attempting to go into a mushroom (scores)
+                elif TargetTileGraphic == Ascii["Mushroom"]:
+                    (i,j) = TargetTile
+                    Grid[i][j] = Ascii["Floor"]
+                    
+                    PlayerPosition = TargetTile
+                    MushroomsCollected += 1
+
+                    
+                elif TargetTileGraphic == Ascii["Tree"]:
+                    if HeldItem == None:
+                        print("mamaz that's a tree")
+
+                    elif HeldItem == "Axe":
+                        (i,j) = TargetTile
+                        Grid[i][j] = Ascii["Floor"]
+                        PlayerPosition = TargetTile
+                        HeldItem = None
+
+                    elif HeldItem == "Flamethrower":
+                        Grid = BurnTrees(Grid, [TargetTile,])
+                        HeldItem = None
+                        PlayerPosition = TargetTile
+
+                # Attempting to go into floor or paved (works as is)
+                elif TargetTileGraphic in [Ascii["Floor"], Ascii["Paved"], Ascii["Axe"], Ascii["Flamethrower"]]:
+                    PlayerPosition = TargetTile
+
+                # Attempting to go into water (cause failstate)
+                elif TargetTileGraphic in [Ascii["Water"]]:
+                    IsComplete=True
+
+        if MushroomsCollected == MaxMushrooms:
+            IsComplete=True
+    print("either u've collected all shrooms or u fell into water if u see this...")
+
+# TO DO: pushing rocks when the ahead-of-target-tile is out of bounds, player going out of bounds
