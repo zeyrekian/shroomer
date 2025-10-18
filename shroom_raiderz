@@ -151,19 +151,22 @@ def Play(InitialGrid):
     # Save the initial grid data for resets
     InitialGrid = StringGridToTileGrid(InitialGrid)
     Grid = InitialGrid
+    Grid = list(list(Row) for Row in Grid)
     GridWidth, GridHeight = (len(Grid[0]), len(Grid))
 
     # The player is stored as their coordinates
     # The actual grid data is 'playerless',
     # but the player coordinates are always valid (on top of floor/paved)
     # to check for being on top of items and to keep paved tiles
-    PlayerPosition = FindAll(Grid, Ascii["Player"])[0]
+    InitialPlayerPosition = FindAll(Grid, Ascii["Player"])[0]
+    PlayerPosition = InitialPlayerPosition
     Grid [PlayerPosition[r]] [PlayerPosition[c]] = Ascii["Floor"]
 
     # Rocks can be pushed on top of paved tiles
     # So we can use the same methods to make the grid data 'rockless'
     # and ensure rock and player positions are always valid
-    RockPositions = FindAll(Grid, Ascii["Rock"])
+    InitialRockPositions = tuple(FindAll(Grid, Ascii["Rock"]))
+    RockPositions = list(InitialRockPositions)
     for RockPosition in RockPositions:
         Grid [RockPosition[r]] [RockPosition[c]] = Ascii["Floor"]
     
@@ -238,7 +241,19 @@ def Play(InitialGrid):
         for Step in steps:
 
             if Step in Reset:
-                pass
+                MushroomsCollected = 0
+                
+                Grid = InitialGrid
+                Grid = list(list(Row) for Row in Grid)
+                
+                PlayerPosition = InitialPlayerPosition
+                Grid [PlayerPosition[r]] [PlayerPosition[c]] = Ascii["Floor"]
+                
+                RockPositions = InitialRockPositions
+                RockPositions = list(RockPositions)
+                for RockPosition in RockPositions:
+                    Grid [RockPosition[r]] [RockPosition[c]] = Ascii["Floor"]
+
 
             elif Step in Pickup:
                 if (HeldItem == None) and (OnTopOfItem != None):
@@ -352,4 +367,6 @@ def Play(InitialGrid):
         if MushroomsCollected == MaxMushrooms:
             IsComplete=True
     print("either u've collected all shrooms or u fell into water if u see this...")
-main()
+
+if __name__=='__main__':
+    main()
