@@ -7,25 +7,57 @@ T.*.T~T.x.T
 T.TT.~....T
 T.T+TL.*..T
 T.TTT.....T
-T..R...RTTT
-T.......T+T
+T..R...R~~T
+T.......~+T
 TTTTTTTTTTT
 '''
 
-LEVELDATA = { 
+# LEVELDATA
 # Contains important data such as coords of Laro and other items
 # Will eventually make a command to automatically make leveldata with only the level
-	'borders': (9, 11),
-	'laro': (4, 5),
+
+def create_leveldata(level):
+	result = {
+	'borders': (0, 0),
+	'laro': (0, 0),
 	'mush_collected': 0,
-	'mush_total': 3,
+	'mush_total': 0,
 	'paved': (),
-	'axe': [(2, 8)],
-	'fire': [(4, 7), (2, 2)],
+	'axe': [],
+	'fire': [],
 	'standing_on': '',
 	'holding': '',
-	'move_count': 0
-}
+	'move_count': 0,
+	'control_scheme': (),
+	}
+	levelgrid = level.split('\n')
+	(r, c) = (len(levelgrid)-1, len(levelgrid[0]))
+	result['borders'] = (r, c)
+	for i in range(r):
+		for j in range(c):
+			if levelgrid[i][j] == '*': result['fire'].append((i, j))
+			elif levelgrid[i][j] == 'x': result['axe'].append((i, j))
+			elif levelgrid[i][j] == '+': result['mush_total'] += 1
+			elif levelgrid[i][j] == 'L': result['laro'] =  (i, j)   
+	control_scheme_choice = {
+	'w': ('W', 'A', 'S', 'D'),
+	'u': ('U', 'L', 'D', 'R')
+	}
+	os.system('clear')
+	while True:
+		choice = input('''CHOOSE CONTROL SCHEME
+
+[W] for WASD
+[U] for ULDR
+
+''')
+		if choice in ('w', 'W', 'u', 'U'): 
+			result['control_scheme'] = control_scheme_choice[choice.lower()]
+			break
+		else: print('Invalid input. Try again') 
+	return result
+
+LEVELDATA = create_leveldata(LEVEL)
 
 lv = LEVEL
 
@@ -37,21 +69,29 @@ for x in LEVELDATA:
 
 
 def move(level, leveldata): 
-# Gets your next input, runs a different command according to your input
-	os.system('clear')
-	if leveldata['mush_collected'] == leveldata['mush_total']: endscreen(leveldata)
-	(laro_r, laro_c) = leveldata['laro']
 	levelgrid = level.split('\n')
 	levelgrid = [list(x) for x in levelgrid]
-	if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
-	elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
-	else: leveldata['standing_on'] = ''
-	print('\n' + level)
-	direction = input(f'''\
-[W] = UP
-[A] = LEFT
-[S] = DOWN
-[D] = RIGHT
+	while True:
+		os.system('clear')
+		(laro_r, laro_c) = leveldata['laro']
+		if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
+		elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
+		else: leveldata['standing_on'] = ''
+		for r, c in leveldata['paved']:
+			if levelgrid[r][c] == '.': levelgrid[r][c] = '_'
+		for r, c in leveldata['axe']:
+			if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
+		for r, c in leveldata['fire']:
+			if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
+		level = [''.join(x for x in y) for y in levelgrid]
+		level = '\n'.join(level)
+		if leveldata['mush_collected'] == leveldata['mush_total']: endscreen(leveldata, levelgrid)
+		print(level)
+		direction = input(f'''\
+[{leveldata['control_scheme'][0]}] = UP
+[{leveldata['control_scheme'][1]}] = LEFT
+[{leveldata['control_scheme'][2]}] = DOWN
+[{leveldata['control_scheme'][3]}] = RIGHT
 
 [P] = PICK UP
 [!] = RESET
@@ -63,36 +103,33 @@ Currently standing on: {leveldata['standing_on']}
 You currently have: {leveldata['holding']}
 
 Choose your next move: ''') 
-	if direction in ('w', 'W', 'a', 'A', 's', 'S', 'd', 'D'): # Runs if a valid direction is inputted
-		(level, leveldata) = move_check(levelgrid, leveldata, direction.lower())
-		for r, c in leveldata['paved']:
-			if level[r][c] == '.': level[r][c] = '_'
-		for r, c in leveldata['axe']:
-			if level[r][c] == '.': level[r][c] = 'x'
-		for r, c in leveldata['fire']:
-			if level[r][c] == '.': level[r][c] = '*'
-		level = [''.join(x for x in y) for y in levelgrid]
-		level = '\n'.join(level)
-		move(level, leveldata)
-	elif direction.lower() == 'p': # Pickup
-		if leveldata['standing_on'] and not leveldata['holding']: leveldata = pick_up(leveldata)
-		move(level, leveldata)
-	elif direction.lower() == 'q' : raise AssertionError('QUIT GAME') # Crashes game to avoid going thru recursions
-	elif direction.lower() == '!' : # Fixes bug that retains Laro's position from last run
-		leveldata = {}
-		for x in LEVELDATA:
-			leveldata[x] = LEVELDATA[x]
-		move(LEVEL, leveldata)
+		for d in direction:
+			if d.isalpha():
+				(laro_r, laro_c) = leveldata['laro']
+				if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
+				elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
+				if d.upper() in leveldata['control_scheme']: # Runs if a valid direction is inputted
+					(level, leveldata) = move_check(levelgrid, leveldata, d.upper())
+				elif d.lower() == 'p': # Pickup
+					if leveldata['standing_on'] and not leveldata['holding']: leveldata = pick_up(leveldata)
+				elif d.lower() == 'q' : raise AssertionError('QUIT GAME') # Crashes game to avoid going thru recursions
+			elif d == '!' : # Fixes bug that retains Laro's position from last run
+				print('yep thats right')
+				leveldata = {}
+				for x in LEVELDATA:
+					leveldata[x] = LEVELDATA[x]
+				levelgrid = LEVEL.split('\n')
+				levelgrid = [list(x) for x in levelgrid]
 
 def move_check(level, leveldata, tile_to_move): 
 # Checks the tile Laro is about to move into, runs different commands depending on what laro runs into
 	leveldata['move_count'] += 1
 	(r, c) = leveldata['laro']
 	neighbors = {
-		'w': (r-1, c),
-		's': (r+1, c),
-		'a': (r, c-1),
-		'd': (r, c+1),
+		leveldata['control_scheme'][0]: (r-1, c),
+		leveldata['control_scheme'][2]: (r+1, c),
+		leveldata['control_scheme'][1]: (r, c-1),
+		leveldata['control_scheme'][3]: (r, c+1),
 	}
 	(r1, c1) = neighbors[tile_to_move] # Tile Laro is about to move to, used to check what kind of tile laro is about to run to
 	if not out_of_borders(r1, c1, leveldata['borders']):return (level, leveldata)
@@ -107,7 +144,8 @@ def move_check(level, leveldata, tile_to_move):
 		leveldata['laro'] = (r1, c1)
 		return (level, leveldata)
 	elif level[r1][c1] == '~': # Laro dies
-		endscreen(leveldata)
+		level[r][c] = '.'
+		endscreen(leveldata, level)
 	else: # If tile is empty, laro moves as usual 
 		level[r][c] = '.'
 		level[r1][c1] = 'L'
@@ -118,12 +156,13 @@ def move_rock(level, leveldata, tile_to_move):
 # Runs if you run into a rock to push it
 	(r, c) = leveldata['laro'] 
 	neighbors = {
-		'w': (r-1, c, r-2, c),
-		's': (r+1, c, r+2, c),
-		'a': (r, c-1, r, c-2),
-		'd': (r, c+1, r, c+2),
+		leveldata['control_scheme'][0]: (r-1, c, r-2, c),
+		leveldata['control_scheme'][2]: (r+1, c, r+2, c),
+		leveldata['control_scheme'][1]: (r, c-1, r, c-2),
+		leveldata['control_scheme'][3]: (r, c+1, r, c+2),
 	}
 	(r1, c1, r2, c2) = neighbors[tile_to_move] # 1 is the rock, 2 is the tile in front of the rock
+	if not out_of_borders(r2, c2, leveldata['borders']): return (level, leveldata)
 	if level[r2][c2] in ('T', 'R', 'x', '*', '+'): return (level, leveldata) # Doesn't push if the tile the rock is going to is an object
 	elif level[r2][c2] == '~':
 		level[r][c] = '.'
@@ -173,13 +212,24 @@ def out_of_borders(r, c, borders):
 	else: return True
 
 
-def endscreen(leveldata): 
+def endscreen(leveldata, level): 
 # Runs when you encounter an end state (laro dies or you collect all mushies)
+# Also appears the board state after the game ends
+	os.system('clear')
+	for r, c in leveldata['paved']:
+		if level[r][c] == '.': level[r][c] = '_'
+	for r, c in leveldata['axe']:
+		if level[r][c] == '.': level[r][c] = 'x'
+	for r, c in leveldata['fire']:
+		if level[r][c] == '.': level[r][c] = '*'
+	level = [''.join(x for x in y) for y in level]
+	level = '\n'.join(level)
+	print(level)
 	if leveldata['mush_collected'] == leveldata['mush_total']:
 		letter = input(f'''\
 YOU WON!
 
-Completed in {leveldata['move_count']} moves!
+Game ended in {leveldata['move_count']} move(s)!
 
 Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushrooms
 
@@ -187,8 +237,12 @@ PRESS [!] TO RESET
 PRESS [Q] TO QUIT
 
 ''')
-	else: letter = input('''\
+	else: letter = input(f'''\
 YOU DIED...
+
+Game ended in {leveldata['move_count']} move(s)
+
+Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushrooms
 
 PRESS [!] TO RESET
 PRESS [Q] TO QUIT
