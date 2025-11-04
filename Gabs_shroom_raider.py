@@ -1,6 +1,20 @@
 import os
 
-LEVEL = '''\
+import sys
+
+LEVEL = ''
+
+def main():
+# Checks if there is a level inputted along with the command, loads the demo if there is no level 
+	if len(sys.argv) >= 3:
+		try:
+			with open(sys.argv[2], encoding='utf-8') as f:
+				return (f.read())
+		except FileNotFoundError: 
+			print('Level file not found')
+			exit()
+	else: 
+		return '''\
 TTTTTTTTTTT
 T...T+T...T
 T.*.T~T.x.T
@@ -9,14 +23,15 @@ T.T+TL.*..T
 T.TTT.....T
 T..R...R~~T
 T.......~+T
-TTTTTTTTTTT
-'''
+TTTTTTTTTTT'''
+
+LEVEL = main()
 
 # LEVELDATA
 # Contains important data such as coords of Laro and other items
-# Will eventually make a command to automatically make leveldata with only the level
 
 def create_leveldata(level):
+# Reads the level and makes leveldata
 	result = {
 	'borders': (0, 0),
 	'laro': (0, 0),
@@ -31,7 +46,7 @@ def create_leveldata(level):
 	'control_scheme': (),
 	}
 	levelgrid = level.split('\n')
-	(r, c) = (len(levelgrid)-1, len(levelgrid[0]))
+	(r, c) = (len(levelgrid), len(levelgrid[0]))
 	result['borders'] = (r, c)
 	for i in range(r):
 		for j in range(c):
@@ -66,8 +81,6 @@ for x in LEVELDATA:
 	lvd[x] = LEVELDATA[x]
 
 
-
-
 def move(level, leveldata): 
 	levelgrid = level.split('\n')
 	levelgrid = [list(x) for x in levelgrid]
@@ -86,7 +99,7 @@ def move(level, leveldata):
 		level = [''.join(x for x in y) for y in levelgrid]
 		level = '\n'.join(level)
 		if leveldata['mush_collected'] == leveldata['mush_total']: endscreen(leveldata, levelgrid)
-		print(level)
+		print(level + '\n')
 		direction = input(f'''\
 [{leveldata['control_scheme'][0]}] = UP
 [{leveldata['control_scheme'][1]}] = LEFT
@@ -112,9 +125,8 @@ Choose your next move: ''')
 					(level, leveldata) = move_check(levelgrid, leveldata, d.upper())
 				elif d.lower() == 'p': # Pickup
 					if leveldata['standing_on'] and not leveldata['holding']: leveldata = pick_up(leveldata)
-				elif d.lower() == 'q' : raise AssertionError('QUIT GAME') # Crashes game to avoid going thru recursions
+				elif d.lower() == 'q' : exit()
 			elif d == '!' : # Fixes bug that retains Laro's position from last run
-				print('yep thats right')
 				leveldata = {}
 				for x in LEVELDATA:
 					leveldata[x] = LEVELDATA[x]
@@ -224,6 +236,9 @@ def endscreen(leveldata, level):
 		if level[r][c] == '.': level[r][c] = '*'
 	level = [''.join(x for x in y) for y in level]
 	level = '\n'.join(level)
+	if len(sys.argv) >= 7: 
+		write_results(level, leveldata)
+		quit()
 	print(level)
 	if leveldata['mush_collected'] == leveldata['mush_total']:
 		letter = input(f'''\
@@ -254,7 +269,55 @@ PRESS [Q] TO QUIT
 		for x in LEVELDATA:
 			leveldata[x] = LEVELDATA[x]
 		move(LEVEL, leveldata)
-	if letter.lower() == 'q': raise AssertionError('QUIT GAME')
+	if letter.lower() == 'q': quit()
 
+def move_w_steps(level, leveldata, steps): 
+# special variant of the move command that is accessed when the format of the command is python3 shroom_raider.py -f <stage_file> -m <string_of_moves> -o <output_file>
+	levelgrid = level.split('\n')
+	levelgrid = [list(x) for x in levelgrid]
+	for d in steps:
+		os.system('clear')
+		(laro_r, laro_c) = leveldata['laro']
+		if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
+		elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
+		else: leveldata['standing_on'] = ''
+		for r, c in leveldata['paved']:
+			if levelgrid[r][c] == '.': levelgrid[r][c] = '_'
+		for r, c in leveldata['axe']:
+			if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
+		for r, c in leveldata['fire']:
+			if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
+		if leveldata['mush_collected'] == leveldata['mush_total']: break
+		if d.isalpha():
+			(laro_r, laro_c) = leveldata['laro']
+			if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
+			elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
+			if d.upper() in leveldata['control_scheme']: # Runs if a valid direction is inputted
+				(level, leveldata) = move_check(levelgrid, leveldata, d.upper())
+			elif d.lower() == 'p': # Pickup
+				if leveldata['standing_on'] and not leveldata['holding']: leveldata = pick_up(leveldata)
+			elif d.lower() == 'q' : raise AssertionError('QUIT GAME') # Crashes game to avoid going thru recursions
+		elif d == '!' : # Fixes bug that retains Laro's position from last run
+			leveldata = {}
+			for x in LEVELDATA:
+				leveldata[x] = LEVELDATA[x]
+			levelgrid = LEVEL.split('\n')
+			levelgrid = [list(x) for x in levelgrid]
+	level = [''.join(x for x in y) for y in levelgrid]
+	level = '\n'.join(level)
+	write_results(level, leveldata)
 
-move(lv, lvd)
+def write_results(level, leveldata):
+# Writes the results in the output file
+	if leveldata['mush_collected'] == leveldata['mush_total']: status = 'CLEAR'
+	else: status = 'NOT CLEAR'
+	with open(sys.argv[6], 'w', encoding='utf-8') as f:
+		f.write(status)
+		f.write('\n' + level)
+		f.write('\n' + f'Game ended in {leveldata['move_count']} move(s)')
+
+if len(sys.argv) <= 3: move(lv, lvd)
+else: move_w_steps(lv, lvd, sys.argv[4])
+
+# Try entering the command below with this code and the level1 here, should create a .py file saying CLEAR
+# python3 -m shroomraider2 -f level1.py -m awadwadwadwaaasssssss -o result.py
