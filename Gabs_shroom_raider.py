@@ -29,7 +29,7 @@ LEVEL = main()
 
 # LEVELDATA
 # Contains important data such as coords of Laro and other items
-
+winners = {}
 def create_leveldata(level):
 # Reads the level and makes leveldata
     result = {
@@ -60,19 +60,8 @@ def create_leveldata(level):
     }
     os.system('clear')
     while True:
-        choice = input('''
-┌───────────────────────────────────────────┐
-│               Shroom Raiders!             │
-│                                           │
-│           CHOOSE CONTROL SCHEME           │
-│                                           │
-│           [W] to WASD                     │
-│           [U] to ULDR                     │
-│           [Q] to Quit                     │
-│           [L] to Leaderboard              │
-└───────────────────────────────────────────┘
-
-''')
+        with open("menu.txt", encoding='utf-8') as m:
+            choice = input(m.read())
         if choice in ('w', 'W', 'u', 'U'): 
             result['control_scheme'] = control_scheme_choice[choice.lower()]
             break
@@ -286,7 +275,7 @@ PRESS [Q] TO QUIT
         name = input("Enter your Name:")
 
 def leaderboard(name,leveldata):
-    ...
+    winners
 
 def move_w_steps(level, leveldata, steps): 
 # special variant of the move command that is accessed when the format of the command is python3 shroom_raider.py -f <stage_file> -m <string_of_moves> -o <output_file>
