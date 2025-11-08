@@ -3,8 +3,7 @@ import sys
 from time import sleep # execution delays for "animations"
 delay = 0.1
 
-#______________________________________________________________________
-
+#---------------------------------------------------------------------
 # GAME LOOP
 
 # 1.) move
@@ -21,8 +20,7 @@ delay = 0.1
         # use_item and flamethrower funcs
 
 # 4.) return to move to receive next inputs, repeat until end condition
-
-#______________________________________________________________________
+#---------------------------------------------------------------------
 
 # Graphics from ASCII and text to UI
 Ui={".": '  ',
@@ -79,9 +77,6 @@ def main():
 
 (LEVEL, LEVEL_NAME) = main()
 
-
-
-
 # Leaderboards per level are stored in a separate .txt file
 # Entries are stored as: NAME, MOVES, RANK
 def show_leaderboard():
@@ -122,14 +117,11 @@ RANK    NAME            MOVES''')
         (moves, s) = leaderboard[nm]
         print(f'{n1}{sp}' + f'     {nm}' + ' '*(8 - len(nm)) + '        ' + f'{moves}')
 
-
 # LEVELDATA
-# Contains important data such as coords of Laro and other items
-
+# Reads the level and makes leveldata
 def create_leveldata(level):
     levelgrid = level.split('\n')
-    
-    # Reads the level and makes leveldata
+  
     result = {
         'borders': (0, 0),
         'laro': (0, 0),
@@ -146,7 +138,8 @@ def create_leveldata(level):
     
     (r, c) = (len(levelgrid), len(levelgrid[0]))
     result['borders'] = (r, c)
-    
+
+    # Obtain in-level tile data
     for i in range(r):
         for j in range(c):
             tile = levelgrid[i][j]
@@ -600,3 +593,4 @@ def write_results(level, leveldata):
 
 if len(sys.argv) <= 3: move(lv, lvd)
 else: move_w_steps(lv, lvd, sys.argv[4])
+
