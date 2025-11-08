@@ -11,12 +11,12 @@ def main():
     if len(sys.argv) >= 3:
         try:
             with open(sys.argv[2], encoding='utf-8') as f:
-                return (f.read())
+                return (f.read(), sys.argv[2])
         except FileNotFoundError: 
             print('Level file not found')
             exit()
     else: 
-        return '''\
+        return ('''\
 TTTTTTTTTTT
 T...T+T...T
 T.*.T~T.x.T
@@ -25,9 +25,9 @@ T.T+TL.*..T
 T.TTT.....T
 T..R...R~~T
 T.......~+T
-TTTTTTTTTTT'''
+TTTTTTTTTTT''', 'demo_level.txt')
 
-LEVEL = main()
+(LEVEL, LEVEL_NAME) = main()
 
 # Use to get graphics and to convert ASCII to UI
 Ui={
@@ -41,6 +41,38 @@ Ui={
     "x": '🪓',
     "*": '🔥',
     }
+
+def show_leaderboard():
+    if len(sys.argv) >= 3: ld_file = f'{sys.argv[2]}_leaderboard.txt'
+    else: ld_file = f'demo_level_leaderboard.txt'
+    try:
+        with open(ld_file, encoding="utf-8") as f:
+            leaderboard_raw = f.read()
+        if not leaderboard_raw:
+            print(f'No scores found for {LEVEL_NAME}.')
+            quit()
+        else: 
+            leaderboard_past = leaderboard_raw.split('\n')
+            leaderboard_past = [tuple(ld.split(', ')) for ld in leaderboard_past]
+            leaderboard = {n[1:-1]: (int(moves), int(s)) for n, moves, s in leaderboard_past}
+    except FileNotFoundError:
+        print(f'No scores found for {LEVEL_NAME}.')
+        quit()
+    print(f'Displaying leaderboard for {LEVEL_NAME}')
+    print('''
+RANK    NAME            MOVES''')
+    name_order = [name for name in leaderboard]
+    names_len = len(name_order)
+    if names_len >= 10: names_len = 10
+    new_ld = []
+    for n in range(names_len):
+        n1 = n+1
+        if n1 == 10: sp = ' '
+        else: sp = '  '
+        nm = name_order[n]
+        (moves, s) = leaderboard[nm]
+        print(f'{n1}{sp}' + f'     {nm}' + ' '*(8 - len(nm)) + '        ' + f'{moves}')
+
 
 # LEVELDATA
 # Contains important data such as coords of Laro and other items
@@ -75,12 +107,15 @@ def create_leveldata(level):
     clear()
     while True:
         with open("menu.txt", encoding='utf-8') as m:
-            choice = input(m.read())
+            choice = input(m.read() + '\n\n')
         if choice in ('w', 'W', 'u', 'U'): 
             result['control_scheme'] = control_scheme_choice[choice.lower()]
             break
         elif choice.lower() == "q":
             clear()
+            quit()
+        elif choice.lower() == "l":
+            show_leaderboard()
             quit()
         else: print('Invalid input. Try again') 
     return result
@@ -289,11 +324,81 @@ PRESS [Q] TO QUIT
         clear()
         quit()
     if letter.lower() == 'y' and is_win: 
-        name = str(input("Enter your Name:"))
-        leaderboard(name,leveldata['move_count'])
+        while True:
+            name = input('\nEnter your name (Max of 8 characters): \n')
+            if 0 > len(name) or len(name) > 8: 
+                print('Invalid name')
+            else: 
+                os.system('clear')
+                print(level + '\n')
+                leaderboard(name, leveldata['move_count'])
+                letter = input(f'''\
 
-def leaderboard(name,score):
-    winners
+PRESS [!] TO RESET
+PRESS [Q] TO QUIT
+
+''')
+
+                if letter.lower() == '!': 
+                    leveldata = {}
+                    for x in LEVELDATA:
+                        leveldata[x] = LEVELDATA[x]
+                    move(LEVEL, leveldata)
+                if letter.lower() == 'q':
+                    clear()
+                    quit()
+
+def leaderboard(name, score):
+    if len(sys.argv) >= 3: ld_file = f'{sys.argv[2]}_leaderboard.txt'
+    else: ld_file = f'demo_level_leaderboard.txt'
+    try:
+        with open(ld_file, encoding="utf-8") as f:
+            leaderboard_raw = f.read()
+        if not leaderboard_raw:
+            leaderboard = {name: (score, 0)}
+        else: 
+            leaderboard_past = leaderboard_raw.split('\n')
+            leaderboard_past = [tuple(ld.split(', ')) for ld in leaderboard_past]
+            leaderboard = {n[1:-1]: (int(moves), int(s)) for n, moves, s in leaderboard_past}
+            latest_s = max([leaderboard[name][1] for name in leaderboard]) + 1
+            leaderboard[name] = (score, latest_s)
+    except FileNotFoundError:
+        leaderboard = {name: (score, 0)}
+    name_order = sort_leaderboard(leaderboard)
+    print(f'Score submitted to leaderboard sucessfully. Displaying leaderboard for {LEVEL_NAME}')
+    print('''
+RANK    NAME            MOVES''')
+    names_len = len(name_order)
+    if names_len >= 10: names_len = 10
+    new_ld = []
+    for n in range(names_len):
+        n1 = n+1
+        if n1 == 10: sp = ' '
+        else: sp = '  '
+        nm = name_order[n]
+        (moves, s) = leaderboard[nm]
+        print(f'{n1}{sp}' + f'     {nm}' + ' '*(8 - len(nm)) + '        ' + f'{moves}')  
+        current_name = f"'{nm}', {moves}, {s}"
+        new_ld.append(current_name)
+    new_ld = '\n'.join(new_ld)
+    with open(ld_file, 'w', encoding='utf-8') as f:
+        f.write(new_ld)
+
+def sort_leaderboard(leaderboard):
+    scores = frozenset(leaderboard[x][0] for x in leaderboard)
+    scores = sorted(scores)
+    names_in_order = []
+    for s in scores:
+        score_bracket = [x for x in leaderboard if leaderboard[x][0] == s]
+        score_rounds = frozenset(leaderboard[x][1] for x in score_bracket)
+        score_rounds = sorted(score_rounds)
+        for r in score_rounds:
+            for x in score_bracket:
+                if leaderboard[x][1] == r:
+                    names_in_order.append(x)
+                    break
+    return names_in_order
+
 
 def move_w_steps(level, leveldata, steps): 
 # special variant of the move command that is accessed when the format of the command is python3 shroom_raider.py -f <stage_file> -m <string_of_moves> -o <output_file>
@@ -343,5 +448,3 @@ def write_results(level, leveldata):
 if len(sys.argv) <= 3: move(lv, lvd)
 else: move_w_steps(lv, lvd, sys.argv[4])
 
-# Try entering the command below with this code and the level1 here, should create a .py file saying CLEAR
-# python3 -m shroomraider2 -f level1.py -m awadwadwadwaaasssssss -o result.py
