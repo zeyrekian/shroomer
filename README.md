@@ -22,5 +22,5 @@ Controls apply once [Enter] is pressed.
 You can type a string of moves, then press [Enter] to execute them in one go.
 
 # Items
-Axe: walk into a tree to cut it down. Clears the tree's tile.
-Flamethrower: walk into a tree to burn it and start a forest fire. Burning trees will spread to nearby trees, clearing many in one go.
+- Axe: walk into a tree to cut it down. Clears the tree's tile.
+- Flamethrower: walk into a tree to burn it and start a forest fire. Burning trees will spread to nearby trees, clearing many in one go.
