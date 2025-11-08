@@ -3,6 +3,8 @@ import os
 import sys
 
 LEVEL = ''
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 def main():
 # Checks if there is a level inputted along with the command, loads the demo if there is no level 
@@ -27,9 +29,21 @@ TTTTTTTTTTT'''
 
 LEVEL = main()
 
+# Use to get graphics and to convert ASCII to UI
+Ui={
+    ".": '  ',
+    "L": '🧑',
+    "T": '🌲',
+    "+": '🍄',
+    "R": '🪨',
+    "~": '🟦',
+    "_": '⬜',
+    "x": '🪓',
+    "*": '🔥',
+    }
+
 # LEVELDATA
 # Contains important data such as coords of Laro and other items
-winners = {}
 def create_leveldata(level):
 # Reads the level and makes leveldata
     result = {
@@ -58,7 +72,7 @@ def create_leveldata(level):
     'w': ('W', 'A', 'S', 'D'),
     'u': ('U', 'L', 'D', 'R')
     }
-    os.system('clear')
+    clear()
     while True:
         with open("menu.txt", encoding='utf-8') as m:
             choice = input(m.read())
@@ -66,6 +80,7 @@ def create_leveldata(level):
             result['control_scheme'] = control_scheme_choice[choice.lower()]
             break
         elif choice.lower() == "q":
+            clear()
             quit()
         else: print('Invalid input. Try again') 
     return result
@@ -83,7 +98,7 @@ def move(level, leveldata):
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     while True:
-        os.system('clear')
+        clear()
         (laro_r, laro_c) = leveldata['laro']
         if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
         elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
@@ -94,7 +109,7 @@ def move(level, leveldata):
             if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
         for r, c in leveldata['fire']:
             if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
-        level = [''.join(x for x in y) for y in levelgrid]
+        level = [''.join(Ui[x] for x in y) for y in levelgrid]
         level = '\n'.join(level)
         if leveldata['mush_collected'] == leveldata['mush_total']: endscreen(leveldata, levelgrid)
         print(level + '\n')
@@ -225,14 +240,14 @@ def out_of_borders(r, c, borders):
 def endscreen(leveldata, level): 
 # Runs when you encounter an end state (laro dies or you collect all mushies)
 # Also appears the board state after the game ends
-    os.system('clear')
+    clear()
     for r, c in leveldata['paved']:
         if level[r][c] == '.': level[r][c] = '_'
     for r, c in leveldata['axe']:
         if level[r][c] == '.': level[r][c] = 'x'
     for r, c in leveldata['fire']:
         if level[r][c] == '.': level[r][c] = '*'
-    level = [''.join(x for x in y) for y in level]
+    level = [''.join(Ui[x] for x in y) for y in level]
     level = '\n'.join(level)
     if len(sys.argv) >= 7: 
         write_results(level, leveldata)
@@ -270,11 +285,14 @@ PRESS [Q] TO QUIT
         for x in LEVELDATA:
             leveldata[x] = LEVELDATA[x]
         move(LEVEL, leveldata)
-    if letter.lower() == 'q': quit()
+    if letter.lower() == 'q':
+        clear()
+        quit()
     if letter.lower() == 'y' and is_win: 
-        name = input("Enter your Name:")
+        name = str(input("Enter your Name:"))
+        leaderboard(name,leveldata['move_count'])
 
-def leaderboard(name,leveldata):
+def leaderboard(name,score):
     winners
 
 def move_w_steps(level, leveldata, steps): 
@@ -282,7 +300,7 @@ def move_w_steps(level, leveldata, steps):
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     for d in steps:
-        os.system('clear')
+        clear()
         (laro_r, laro_c) = leveldata['laro']
         if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
         elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
