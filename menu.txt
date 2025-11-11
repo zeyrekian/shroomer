@@ -1,11 +1,12 @@
 
-┌───────────────────────────────────────────┐
-│               Shroom Raiders!             │
-│                                           │
-│           CHOOSE CONTROL SCHEME           │
-│                                           │
-│           [W] to WASD                     │
-│           [U] to ULDR                     │
-│           [Q] to Quit                     │
-│           [L] to Leaderboard              │
-└───────────────────────────────────────────┘
+┌────────────────────────────────────────────┐
+│                       Shroom Raiders!      │
+│      ,xXXXXx,                              │
+│     ,XXXXXXXX,     CHOOSE CONTROL SCHEME   │
+│     XXXXXXXXXX                             │
+│     `"""XX"""`     [W] to WASD             │
+│         XX         [U] to ULDR             │
+│         XX                                 │
+│         XX         [Q] to Quit             │
+│         XX         [L] to Leaderboard      │
+└────────────────────────────────────────────┘
