@@ -1,7 +1,7 @@
 import os
 import sys
 from time import sleep # execution delays for "animations"
-delay = 0.1
+delay = 0.05
 
 #---------------------------------------------------------------------
 # GAME LOOP
@@ -56,7 +56,7 @@ T.T+TL.*..T
 T.TTT.....T
 T..R...R~~T
 T.......~+T
-TTTTTTTTTT'''
+TTTTTTTTTTT'''
 
 def clear():
 # Clear screen
@@ -189,7 +189,13 @@ def move(level, leveldata):
     
     while True:
         clear()
-
+        for r, c in leveldata['paved']:
+            if levelgrid[r][c] == '.': levelgrid[r][c] = '_'
+        for r, c in leveldata['axe']:
+            if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
+        for r, c in leveldata['fire']:
+            if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
+            (laro_r, laro_c) = leveldata['laro']
         # Update level data
         (laro_r, laro_c) = leveldata['laro']
         if (laro_r, laro_c) in leveldata['axe']:
@@ -198,13 +204,6 @@ def move(level, leveldata):
             leveldata['standing_on'] = 'Flamethrower'
         else:
             leveldata['standing_on'] = ''
-            
-        for r, c in leveldata['paved']:
-            if levelgrid[r][c] == '.': levelgrid[r][c] = '_'
-        for r, c in leveldata['axe']:
-            if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
-        for r, c in leveldata['fire']:
-            if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
             
         # Check for win condition
         if leveldata['mush_collected'] == leveldata['mush_total']:
@@ -248,13 +247,28 @@ Enter your next move/s: ''')
         # Run step by step
         for step in steps:
             clear()
+            for r, c in leveldata['paved']:
+                if levelgrid[r][c] == '.': levelgrid[r][c] = '_'
+            for r, c in leveldata['axe']:
+                if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
+            for r, c in leveldata['fire']:
+                if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
+            (laro_r, laro_c) = leveldata['laro']
+            if (laro_r, laro_c) in leveldata['axe']:
+                leveldata['standing_on'] = 'Axe'
+            elif (laro_r, laro_c) in leveldata['fire']:
+                leveldata['standing_on'] = 'Flamethrower'
+            else:
+                leveldata['standing_on'] = ''
+
             print('\n'.join([''.join(Ui[x] for x in y) for y in levelgrid]))
             
             sleep(delay)
             step = step.upper()
             
             if step.isalpha():
-                (laro_r, laro_c) = leveldata['laro']
+
+                sleep(delay)
 
                 # Check for items under Laro
                 if (laro_r, laro_c) in leveldata['axe']:
@@ -296,12 +310,13 @@ def move_check(level, leveldata, tile_to_move):
     
     # Tile Laro is about to move to, used to check what kind of tile laro is about to run to
     (r1, c1) = neighbors[tile_to_move]
-    target_tile = level[r1][c1]
 
     if not out_of_borders(r1, c1, leveldata['borders']):
         return (level, leveldata)
+
+    target_tile = level[r1][c1]
     
-    elif target_tile == tree: 
+    if target_tile == tree: 
         if leveldata['holding']:
             return use_item(level, leveldata, (r1, c1)) # Runs in case Laro has an item
         else:
@@ -337,10 +352,11 @@ def move_rock(level, leveldata, tile_to_move):
         leveldata['control_scheme'][3]: (r, c+1, r, c+2),
     }
     (r1, c1, r2, c2) = neighbors[tile_to_move] # 1 is the rock, 2 is the tile in front of the rock
-    tile_in_front = level[r2][c2]
     
     if not out_of_borders(r2, c2, leveldata['borders']):
         return (level, leveldata)
+
+    tile_in_front = level[r2][c2]
     
     if tile_in_front in (tree, rock, axe, fire, mushroom):
         return (level, leveldata) # Doesn't push if the tile the rock is going to is an object
@@ -536,9 +552,8 @@ def move_w_steps(level, leveldata, steps):
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     
-    for step in steps:
+    for d in steps:
         clear()
-        sleep(0.5)
         (laro_r, laro_c) = leveldata['laro']
 
         # Check if Laro is on an item
@@ -589,8 +604,8 @@ def write_results(level, leveldata):
     with open(sys.argv[6], 'w', encoding='utf-8') as f:
         f.write(status)
         f.write('\n' + level)
+        f.write('\n' + f'Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushrooms')
         f.write('\n' + f'Game ended in {leveldata['move_count']} move(s)')
 
 if len(sys.argv) <= 3: move(lv, lvd)
 else: move_w_steps(lv, lvd, sys.argv[4])
-
