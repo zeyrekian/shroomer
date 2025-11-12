@@ -38,8 +38,10 @@ Ui = {".": '  ',
     "*": '🔥',
     "=": '📦',
     "#": '🧱',
+    "P": "🔨",
     "Axe": '🪓',
-    "Flamethrower": '🔥'}
+    "Flamethrower": '🔥',
+    "Hammer": "🔨"}
 
 # Readability: constant vars for leveldata items
 empty = "."
@@ -53,10 +55,18 @@ axe = "x"
 fire = "*"
 crate = "="
 wall = "#"
+hammer = "P"
 
 # Item attributes
 pushable = (rock, crate)
+unpushable = (wall, tree) # *Without items
+
 flammable = (tree, crate)
+hammerable = (wall, rock)
+
+tree_tools = ('Axe', 'Flamethrower')
+stone_tools = ('Hammer',)
+
 
 LEVEL = ''
 DEMOLEVEL = '''\
@@ -196,7 +206,7 @@ def move(level: str, leveldata: dict) -> None:
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     while True:
-        clear()
+        
         for r, c in leveldata['paved']:
             if levelgrid[r][c] == '.':
                 levelgrid[r][c] = '_'
@@ -206,7 +216,9 @@ def move(level: str, leveldata: dict) -> None:
         # Check for win condition
         if leveldata['mush_collected'] == leveldata['mush_total']:
             endscreen(leveldata, levelgrid)
+            
         # Print to terminal
+        clear()
         print_to_terminal()
         # Change pickup button text based on current holding and stood-on items
         (pickup_info, item) = ("", leveldata['standing_on'])
@@ -292,19 +304,23 @@ def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
         return (level, leveldata)
 
     target_tile = level[r1][c1]
+    held_item = leveldata['holding']
 
-    if target_tile == tree:
-        if leveldata['holding']: # Runs use_item() if holding an item
-            return use_item(level, leveldata, (r1, c1))
-        else:
-            return (level, leveldata)
+    # Check all item interactions first
+    if target_tile == tree and held_item in tree_tools: # Trees
+        return use_item(level, leveldata, (r1, c1))
+
+    elif target_tile in hammerable and held_item in stone_tools: # Walls, rocks
+        return use_item(level, leveldata, (r1, c1))
 
     elif target_tile in pushable: # Runs push() command
         return push(level, leveldata, tile_to_move)  
 
-    elif target_tile == wall: # Nothing happens for walls
+    # Case: nothing happens, from not having the right item
+    elif target_tile in unpushable: 
         return (level, leveldata)
-    
+
+    # Now check for working itemless conditions
     elif target_tile == mushroom:
         leveldata['mush_collected'] += 1
         level[r][c] = '.'
@@ -359,11 +375,15 @@ def push(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
 
 def pick_up(leveldata: dict) -> dict:
     # Processes picking up items (adding them to laro's inventory and removing the item's coords from leveldata)
-    if leveldata['standing_on'] == axe:
+    on_top_of = leveldata['standing_on']
+    if on_top_of == axe:
         leveldata['holding'] = 'Axe'
 
-    elif leveldata['standing_on'] == fire:
+    elif on_top_of == fire:
         leveldata['holding'] = 'Flamethrower'
+
+    elif on_top_of == hammer:
+        leveldata['holding'] = 'Hammer'
 
     leveldata['standing_on'] = empty
     return leveldata
@@ -374,17 +394,18 @@ def use_item(level: str, leveldata: dict, next_tile: tuple) -> (str, dict):
     (r1, c1) = next_tile
     (laro_r, laro_c) = leveldata['laro']
     held_item = leveldata['holding']
+
+    # In every item case, the target tile becomes empty and Laro goes to it
+    level[r1][c1] = laro
+    level[laro_r][laro_c] = empty
     
-    if held_item == 'Axe':
-        level[r1][c1] = 'L'
-        level[laro_r][laro_c] = '.'
+    if held_item in ('Axe', 'Hammer'):
+        pass # Already covered by code above
         
     elif held_item == 'Flamethrower':
         for rx, cx in flamethrower(level, leveldata, r1, c1, frozenset()):
-            level[rx][cx] = '.'
-        level[r1][c1] = 'L'
-        level[laro_r][laro_c] = '.'
-            
+            level[rx][cx] = empty
+                
     leveldata['holding'] = ''
     leveldata['laro'] = (r1, c1)
     return (level, leveldata)
@@ -438,7 +459,7 @@ YOU DIED...
 
 Game ended in {leveldata['move_count']} move(s)
 
-Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushrooms
+Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushroom/s
 
 PRESS [!] TO RESET
 PRESS [Q] TO QUIT
@@ -571,7 +592,7 @@ def write_results(level: str, leveldata: dict) -> None:
     with open(sys.argv[6], 'w', encoding='utf-8') as f:
         f.write(status)
         f.write('\n' + level)
-        f.write('\n' + f'Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushrooms')
+        f.write('\n' + f'Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushroom/s')
         f.write('\n' + f'Game ended in {leveldata['move_count']} move(s)')
 
 
