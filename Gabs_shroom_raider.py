@@ -60,6 +60,7 @@ hammer = "P"
 # Item attributes
 pushable = (rock, crate)
 unpushable = (wall, tree) # *Without items
+items = (axe, fire, hammer)
 
 flammable = (tree, crate)
 hammerable = (wall, rock)
@@ -84,6 +85,11 @@ TTTTTTTTTTT'''
 def clear() -> None:
     # Clear screen
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def print_to_terminal(levelgrid : list): # Local func to print to terminal
+        level = [''.join(Ui[x] for x in y) for y in levelgrid]
+        level = '\n'.join(level)
+        print(level + '\n')
 
 
 def main() -> (str, str):
@@ -197,11 +203,6 @@ for x in LEVELDATA:
 
 
 def move(level: str, leveldata: dict) -> None:
-    
-    def print_to_terminal(): # Local func to print to terminal
-        level = [''.join(Ui[x] for x in y) for y in levelgrid]
-        level = '\n'.join(level)
-        print(level + '\n')
         
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
@@ -219,10 +220,10 @@ def move(level: str, leveldata: dict) -> None:
             
         # Print to terminal
         clear()
-        print_to_terminal()
+        print_to_terminal(levelgrid)
         # Change pickup button text based on current holding and stood-on items
         (pickup_info, item) = ("", leveldata['standing_on'])
-        if leveldata['standing_on'] != empty:
+        if leveldata['standing_on'] in items:
             if not leveldata['holding']:
                 pickup_info = "[P] = PICK UP " + item.upper() + " (" + Ui[item] + ")"
             else:
@@ -257,7 +258,7 @@ Enter your next move/s: ''')
             (laro_r, laro_c) = leveldata['laro']
             
             clear()
-            print_to_terminal()
+            print_to_terminal(levelgrid)
             if animation_delay:
                 sleep(delay)
                 
@@ -376,7 +377,10 @@ def push(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
 def pick_up(leveldata: dict) -> dict:
     # Processes picking up items (adding them to laro's inventory and removing the item's coords from leveldata)
     on_top_of = leveldata['standing_on']
-    if on_top_of == axe:
+    if on_top_of not in items:
+        return leveldata
+    
+    elif on_top_of == axe:
         leveldata['holding'] = 'Axe'
 
     elif on_top_of == fire:
@@ -394,24 +398,29 @@ def use_item(level: str, leveldata: dict, next_tile: tuple) -> (str, dict):
     (r1, c1) = next_tile
     (laro_r, laro_c) = leveldata['laro']
     held_item = leveldata['holding']
+    
+    if held_item in ('Axe', 'Hammer'):
+        pass # Already covered by code below
+        
+    elif held_item == 'Flamethrower':
+        affected_tiles = flamethrower(level, leveldata, r1, c1, frozenset())
+        for rx, cx in affected_tiles:
+            level[rx][cx] = fire # Convert the tiles to fire for "animation"
+        clear()
+        print_to_terminal(level)
+        sleep(delay*5)
+        for rx, cx in affected_tiles:
+            level[rx][cx] = empty # Actual tile representation
 
     # In every item case, the target tile becomes empty and Laro goes to it
     level[r1][c1] = laro
     level[laro_r][laro_c] = empty
-    
-    if held_item in ('Axe', 'Hammer'):
-        pass # Already covered by code above
-        
-    elif held_item == 'Flamethrower':
-        for rx, cx in flamethrower(level, leveldata, r1, c1, frozenset()):
-            level[rx][cx] = empty
                 
     leveldata['holding'] = ''
     leveldata['laro'] = (r1, c1)
     return (level, leveldata)
 
-# Returns frozenset of trees
-# Used in use_item() to turn affected tree tiles into empty tiles
+# Used in use_item() to find affected tree tiles into empty tiles
 def flamethrower(level: str, leveldata: dict, r: int, c: int, trees: frozenset) -> frozenset:
     neighbors = ((r+1, c), (r-1, c), (r, c+1), (r, c-1))
     level[r][c] = '.'
