@@ -1,6 +1,7 @@
 import os
 import sys
 from time import sleep  # execution delays for "animations"
+
 delay = 0.05
 
 # ---------------------------------------------------------------------
@@ -12,7 +13,7 @@ delay = 0.05
 
 # 2.) accept and assess valid inputs:
 
-# moves via move_check func    
+# moves via move_check func
 # picking up items via pickup func
 # (all changes are made by editing leveldata var)
 
@@ -68,12 +69,12 @@ T.......~+T
 TTTTTTTTTTT'''
 
 
-def clear():
+def clear() -> None:
     # Clear screen
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
-def main():
+def main() -> (str, str):
     # Checks if there is a level inputted along with the command, loads the demo otherwise
     if len(sys.argv) >= 3:
         try:
@@ -91,12 +92,12 @@ def main():
 
 # Leaderboards per level are stored in a separate .txt file
 # Entries are stored as: NAME, MOVES, RANK
-def show_leaderboard():
+def show_leaderboard() -> None:
     if len(sys.argv) >= 3:
         level_name = sys.argv[2]
         ld_file = f'{level_name}_leaderboard.txt'
     else:
-        ld_file = f'demo_level_leaderboard.txt'
+        ld_file = 'demo_level_leaderboard.txt'
     try:
         with open(ld_file, encoding="utf-8") as f:
             leaderboard_raw = f.read()
@@ -105,18 +106,17 @@ def show_leaderboard():
             sys.exit()
         else:
             leaderboard_past = leaderboard_raw.split('\n')
-            leaderboard_past = [tuple(ld.split(', ')) for ld in leaderboard_past]
+            leaderboard_past = list(tuple(ld.split(', ')) for ld in leaderboard_past)
             leaderboard = {n[1:-1]: (int(moves), int(s)) for n, moves, s in leaderboard_past}
     except FileNotFoundError:
         print(f'No scores found for {LEVEL_NAME}.')
-        sys.exit()       
+        sys.exit()
     print(f'Displaying leaderboard for {LEVEL_NAME}')
     print('''
 RANK    NAME            MOVES''')
     name_order = [name for name in leaderboard]
     names_len = len(name_order)
     names_len = min(10, names_len)
-    new_ld = []
     for n in range(names_len):
         n1 = n+1
         sp = '  ' if n1 == 10 else ' '
@@ -128,8 +128,8 @@ RANK    NAME            MOVES''')
 # Reads the level and makes leveldata
 
 
-def create_leveldata(level):
-    levelgrid = level.split('\n') 
+def create_leveldata(level: str) -> dict:
+    levelgrid = level.split('\n')
     result = {
         'borders': (0, 0),
         'laro': (0, 0),
@@ -182,7 +182,7 @@ for x in LEVELDATA:
     lvd[x] = LEVELDATA[x]
 
 
-def move(level, leveldata):
+def move(level: str, leveldata: dict) -> None:
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     while True:
@@ -210,7 +210,7 @@ def move(level, leveldata):
         # Add text for items held, if any
         (holding_info, item) = ("", leveldata['holding'])
         if leveldata['holding']:
-            holding_info = "You're holding a " + item.lower() + " (" + Ui[item] + ")"  
+            holding_info = "You're holding a " + item.lower() + " (" + Ui[item] + ")"
         steps = input(f'''\
 {leveldata['mush_collected']}/{leveldata['mush_total']} {Ui["+"]} collected
 {holding_info}
@@ -232,9 +232,8 @@ Enter your next move/s: ''')
             (laro_r, laro_c) = leveldata['laro']
 
             print('\n'.join([''.join(Ui[x] for x in y) for y in levelgrid]))
-            
             sleep(delay)
-            step = step.upper()        
+            step = step.upper()
             if step.isalpha():
 
                 sleep(delay)
@@ -261,7 +260,7 @@ Enter your next move/s: ''')
                 break
 
 
-def move_check(level, leveldata, tile_to_move):
+def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
     # Checks the tile Laro is about to move into, runs different commands depending on what laro runs into
     leveldata['move_count'] += 1
     (r, c) = leveldata['laro']
@@ -269,14 +268,14 @@ def move_check(level, leveldata, tile_to_move):
         leveldata['control_scheme'][0]: (r-1, c),
         leveldata['control_scheme'][2]: (r+1, c),
         leveldata['control_scheme'][1]: (r, c-1),
-        leveldata['control_scheme'][3]: (r, c+1)}    
+        leveldata['control_scheme'][3]: (r, c+1)}
     # Tile Laro is about to move to, used to check what kind of tile laro is about to run to
     (r1, c1) = neighbors[tile_to_move]
     if not out_of_borders(r1, c1, leveldata['borders']):
         return (level, leveldata)
 
     target_tile = level[r1][c1]
-    
+
     if target_tile == tree:
         if leveldata['holding']:
             return use_item(level, leveldata, (r1, c1))  # Runs in case Laro has an item
@@ -294,7 +293,7 @@ def move_check(level, leveldata, tile_to_move):
     elif target_tile == water:
         level[r][c] = '.'
         endscreen(leveldata, level)
-        
+
     else:  # Empty tile, Laro moves as usual
         level[r][c] = leveldata['standing_on']
         leveldata['standing_on'] = level[r1][c1]
@@ -303,7 +302,7 @@ def move_check(level, leveldata, tile_to_move):
         return (level, leveldata)
 
 
-def push(level, leveldata, tile_to_move):
+def push(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
     # Runs if you run into a rock to push it
     (r, c) = leveldata['laro']
     neighbors = {
@@ -319,16 +318,16 @@ def push(level, leveldata, tile_to_move):
         return (level, leveldata)
 
     tile_in_front = level[r2][c2]
-    if tile_in_front not in (empty, water, paved):
+    if tile_in_front not in {empty, water, paved}:
         return (level, leveldata)  # Doesn't push if the tile the rock is going to is an object
     elif tile_in_front == water:
         level[r][c] = '.'
         level[r1][c1] = 'L'
-        if tile_to_push == rock: 
+        if tile_to_push == rock:
             level[r2][c2] = '_'
         leveldata['laro'] = (r1, c1)
         leveldata['paved'] += ((r2, c2),)
-        return (level, leveldata)   
+        return (level, leveldata)
     else:  # Empty tile; rock can be pushed
         level[r][c] = '.'
         level[r1][c1] = 'L'
@@ -337,7 +336,7 @@ def push(level, leveldata, tile_to_move):
         return (level, leveldata)
 
 
-def pick_up(leveldata):
+def pick_up(leveldata: dict) -> dict:
     # Processes picking up items (adding them to laro's inventory and removing the item's coords from leveldata)
     if leveldata['standing_on'] == axe:
         leveldata['holding'] = 'Axe'
@@ -349,18 +348,18 @@ def pick_up(leveldata):
     return leveldata
 
 
-def use_item(level, leveldata, next_tile):
+def use_item(level: str, leveldata: dict, next_tile: tuple) -> (str, dict):
     (r1, c1) = next_tile
     if leveldata['holding'] == 'Axe':
-        level[r1][c1] = '.'  
+        level[r1][c1] = '.'
     elif leveldata['holding'] == 'Flamethrower':
         for rx, cx in flamethrower(level, leveldata, r1, c1, frozenset()):
-            level[rx][cx] = '.'          
+            level[rx][cx] = '.'
     leveldata['holding'] = ''
     return (level, leveldata)
 
 
-def flamethrower(level, leveldata, r, c, trees):
+def flamethrower(level: str, leveldata: dict, r: int, c: int, trees: frozenset) -> frozenset:
     # FIXED, returns a frozenset of coords of all trees adjacent to (r, c)
     neighbors = ((r+1, c), (r-1, c), (r, c+1), (r, c-1))
     level[r][c] = '.'
@@ -372,12 +371,12 @@ def flamethrower(level, leveldata, r, c, trees):
         return frozenset().union(x for rx, cx in tree_neighbors for x in flamethrower(level, leveldata, rx, cx, frozenset((*trees, (r, c)))))
 
 
-def out_of_borders(r, c, borders):
+def out_of_borders(r: int, c: int, borders: tuple) -> bool:
     (rb, cb) = borders
     return not (r >= rb or c >= cb or r < 0 or c < 0)
 
 
-def endscreen(leveldata, level):
+def endscreen(leveldata: dict, level: str) -> None:
     # Runs when you encounter an end state (laro dies or you collect all mushies)
     # Also appears the board state after the game ends
     clear()
@@ -455,7 +454,7 @@ PRESS [Q] TO QUIT
                         print('Invalid input')
 
 
-def leaderboard(name, score):
+def leaderboard(name: str, score: int) -> None:
     ld_file = f'{sys.argv[2]}_leaderboard.txt' if len(sys.argv) >= 3 else 'demo_level_leaderboard.txt'
     try:
         with open(ld_file, encoding="utf-8") as f:
@@ -490,7 +489,7 @@ RANK    NAME            MOVES''')
         f.write(new_ld)
 
 
-def sort_leaderboard(leaderboard):
+def sort_leaderboard(leaderboard: dict) -> list:
     scores = frozenset(leaderboard[x][0] for x in leaderboard)
     scores = sorted(scores)
     names_in_order = []
@@ -507,7 +506,7 @@ def sort_leaderboard(leaderboard):
 
 
 #  Special variant of the move command python3 shroom_raider.py -f <stage_file> -m <string_of_moves> -o <output_file>
-def move_w_steps(level, leveldata, steps):
+def move_w_steps(level: str, leveldata: dict, steps: str) -> None:
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     for d in steps:
@@ -539,7 +538,7 @@ def move_w_steps(level, leveldata, steps):
     write_results(level, leveldata)
 
 
-def write_results(level, leveldata):
+def write_results(level: str, leveldata: dict) -> None:
     # Writes the results in the output file
     status = 'CLEAR' if leveldata['mush_collected'] == leveldata['mush_total'] else 'NOT CLEAR'
     with open(sys.argv[6], 'w', encoding='utf-8') as f:
