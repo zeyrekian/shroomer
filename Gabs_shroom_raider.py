@@ -5,7 +5,7 @@ from time import sleep  # execution delays for "animations"
 delay = 0.05
 
 # ---------------------------------------------------------------------
-# GAME LOOP
+# GAME LOOP (see bottom)
 
 # 1.) move
 
@@ -24,6 +24,23 @@ delay = 0.05
 # use_item and flamethrower funcs
 
 # 4.) return to move to receive next inputs, repeat until end condition
+# ---------------------------------------------------------------------
+# NEW TILES AND ITEMS
+
+# 1.) Crates ("=")
+# Can be pushed, like rocks, but can't pave water.
+# Flammable. Burns with other trees when using the flamethrower.
+
+# 2.) Walls ("#")
+# Uninteractable, like trees.
+# Can be broken with a hammer.
+
+# 3.) Hammers ("P")
+# Item that can be picked up.
+# Can be used to smash a wall or a rock once. Laro moves to this tile after.
+# You will break rocks instead of push them while holding a hammer, so
+# pick it up at the right time.
+
 # ---------------------------------------------------------------------
 
 # Graphics from ASCII and text to UI
@@ -68,29 +85,18 @@ hammerable = (wall, rock)
 tree_tools = ('Axe', 'Flamethrower')
 stone_tools = ('Hammer',)
 
-
-LEVEL = ''
-DEMOLEVEL = '''\
-TTTTTTTTTTT
-T...T+T...T
-T.*.T~T.x.T
-T.TT.~....T
-T.T+TL.*..T
-T.TTT.....T
-T..R...R~~T
-T.......~+T
-TTTTTTTTTTT'''
-
+#-----------------------------------------
+# FUNCTIONS
 
 def clear() -> None:
     # Clear screen
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def print_to_terminal(levelgrid : list): # Local func to print to terminal
-        level = [''.join(Ui[x] for x in y) for y in levelgrid]
-        level = '\n'.join(level)
-        print(level + '\n')
-
+def print_to_terminal(levelgrid : list) -> None:
+    # Local func to print to terminal
+    level = [''.join(Ui[x] for x in y) for y in levelgrid]
+    level = '\n'.join(level)
+    print(level + '\n')
 
 def main() -> (str, str):
     # Checks if there is a level inputted along with the command, loads the demo otherwise
@@ -103,10 +109,6 @@ def main() -> (str, str):
             sys.exit()
     else:
         return (DEMOLEVEL, 'demo_level.txt')
-
-
-(LEVEL, LEVEL_NAME) = main()
-
 
 # Leaderboards per level are stored in a separate .txt file
 # Entries are stored as: NAME, MOVES, RANK
@@ -129,6 +131,7 @@ def show_leaderboard() -> None:
     except FileNotFoundError:
         print(f'No scores found for {LEVEL_NAME}.')
         sys.exit()
+        
     print(f'Displaying leaderboard for {LEVEL_NAME}')
     print('''
 RANK    NAME            MOVES''')
@@ -142,10 +145,8 @@ RANK    NAME            MOVES''')
         (moves, s) = leaderboard[nm]
         print(f'{n1}{sp}' + f'     {nm}' + ' '*(8 - len(nm)) + '        ' + f'{moves}')
 
-# LEVELDATA
+
 # Reads the level and makes leveldata
-
-
 def create_leveldata(level: str) -> dict:
     levelgrid = level.split('\n')
     result = {
@@ -190,18 +191,6 @@ def create_leveldata(level: str) -> dict:
             print('Invalid input. Try again')
     return result
 
-
-LEVELDATA = create_leveldata(LEVEL)
-
-lv = LEVEL
-
-lvd = {}
-for x in LEVELDATA:
-    lvd[x] = LEVELDATA[x]
-
-
-
-
 def move(level: str, leveldata: dict) -> None:
         
     levelgrid = level.split('\n')
@@ -225,9 +214,9 @@ def move(level: str, leveldata: dict) -> None:
         (pickup_info, item) = ("", leveldata['standing_on'])
         if leveldata['standing_on'] in items:
             if not leveldata['holding']:
-                pickup_info = "[P] = PICK UP " + item.upper() + " (" + Ui[item] + ")"
+                pickup_info = "[P] = PICK UP (" + Ui[item] + ")"
             else:
-                pickup_info = "      ON TOP OF " + item.upper() + " (" + Ui[item] + ")"
+                pickup_info = "      ON TOP OF (" + Ui[item] + ")"
         # Add text for items held, if any
         (holding_info, item) = ("", leveldata['holding'])
         if leveldata['holding']:
@@ -528,7 +517,7 @@ def leaderboard(name: str, score: int) -> None:
     except FileNotFoundError:
         leaderboard = {name: (score, 0)}
     name_order = sort_leaderboard(leaderboard)
-    print(f'Score submitted to leaderboard sucessfully. Displaying leaderboard for {LEVEL_NAME}')
+    print(f'Score submitted to leaderboard sucessfully.\nDisplaying leaderboard for {LEVEL_NAME}')
     print('''
 RANK    NAME            MOVES''')
     names_len = len(name_order)
@@ -604,8 +593,34 @@ def write_results(level: str, leveldata: dict) -> None:
         f.write('\n' + f'Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushroom/s')
         f.write('\n' + f'Game ended in {leveldata['move_count']} move(s)')
 
+#----------------------------------
+# BASIC LOOP 
+
+LEVEL = ''
+DEMOLEVEL = '''\
+TTTTTTTTTTT
+T...T+T...T
+T.*.T~T.x.T
+T.TT.~....T
+T.T+TL.*..T
+T.TTT.....T
+T..R...R~~T
+T.......~+T
+TTTTTTTTTTT'''
+
+(LEVEL, LEVEL_NAME) = main()
+LEVELDATA = create_leveldata(LEVEL)
+
+lv = LEVEL
+
+lvd = {}
+for x in LEVELDATA:
+    lvd[x] = LEVELDATA[x]
+
 
 if len(sys.argv) <= 3:
     move(lv, lvd)
 else:
     move_w_steps(lv, lvd, sys.argv[4])
+
+#-----------------------------------------
