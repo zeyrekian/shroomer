@@ -16,7 +16,7 @@ delay = 0.05
 
 # 3.) helper funcs to manipulate leveldata other than laro
     # includes:
-        # move_rock func
+        # push func
         # use_item and flamethrower funcs
 
 # 4.) return to move to receive next inputs, repeat until end condition
@@ -32,10 +32,12 @@ Ui={".": '  ',
     "_": '⬜',
     "x": '🪓',
     "*": '🔥',
+    "=": '📦',
     "Axe": '🪓',
     "Flamethrower": '🔥',}
 
 # Readability: constant vars for leveldata items
+empty = "."
 laro = "L"
 mushroom = "+"
 tree =  "T"
@@ -44,7 +46,11 @@ water = "~"
 paved = "_"
 axe = "x"
 fire = "*"
-    
+crate = "="
+
+# Item attributes
+pushable = (rock, crate)
+flammable = (tree, crate)
 
 LEVEL = ''
 DEMOLEVEL = '''\
@@ -129,9 +135,7 @@ def create_leveldata(level):
         'mush_collected': 0,
         'mush_total': 0,
         'paved': (),
-        'axe': [],
-        'fire': [],
-        'standing_on': '',
+        'standing_on': '.',
         'holding': '',
         'move_count': 0,
         'control_scheme': (),}
@@ -144,11 +148,7 @@ def create_leveldata(level):
         for j in range(c):
             tile = levelgrid[i][j]
             
-            if tile == fire:
-                result['fire'].append((i, j))
-            elif tile == axe:
-                result['axe'].append((i, j))
-            elif tile == mushroom:
+            if tile == mushroom:
                 result['mush_total'] += 1
             elif tile == 'L':
                 result['laro'] =  (i, j)
@@ -191,19 +191,9 @@ def move(level, leveldata):
         clear()
         for r, c in leveldata['paved']:
             if levelgrid[r][c] == '.': levelgrid[r][c] = '_'
-        for r, c in leveldata['axe']:
-            if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
-        for r, c in leveldata['fire']:
-            if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
             (laro_r, laro_c) = leveldata['laro']
         # Update level data
         (laro_r, laro_c) = leveldata['laro']
-        if (laro_r, laro_c) in leveldata['axe']:
-            leveldata['standing_on'] = 'Axe'
-        elif (laro_r, laro_c) in leveldata['fire']:
-            leveldata['standing_on'] = 'Flamethrower'
-        else:
-            leveldata['standing_on'] = ''
             
         # Check for win condition
         if leveldata['mush_collected'] == leveldata['mush_total']:
@@ -217,7 +207,7 @@ def move(level, leveldata):
         # Change pickup button text based on current holding and stood-on items
         (pickup_info, item) = ("", leveldata['standing_on'])
         
-        if leveldata['standing_on']:
+        if leveldata['standing_on'] != empty:
             if leveldata['holding'] == '':
                 pickup_info = "[P] = PICK UP " + item.upper() + " (" + Ui[item] + ")"
             
@@ -247,19 +237,7 @@ Enter your next move/s: ''')
         # Run step by step
         for step in steps:
             clear()
-            for r, c in leveldata['paved']:
-                if levelgrid[r][c] == '.': levelgrid[r][c] = '_'
-            for r, c in leveldata['axe']:
-                if levelgrid[r][c] == '.': levelgrid[r][c] = 'x'
-            for r, c in leveldata['fire']:
-                if levelgrid[r][c] == '.': levelgrid[r][c] = '*'
             (laro_r, laro_c) = leveldata['laro']
-            if (laro_r, laro_c) in leveldata['axe']:
-                leveldata['standing_on'] = 'Axe'
-            elif (laro_r, laro_c) in leveldata['fire']:
-                leveldata['standing_on'] = 'Flamethrower'
-            else:
-                leveldata['standing_on'] = ''
 
             print('\n'.join([''.join(Ui[x] for x in y) for y in levelgrid]))
             
@@ -269,12 +247,6 @@ Enter your next move/s: ''')
             if step.isalpha():
 
                 sleep(delay)
-
-                # Check for items under Laro
-                if (laro_r, laro_c) in leveldata['axe']:
-                    leveldata['standing_on'] = 'Axe'
-                elif (laro_r, laro_c) in leveldata['fire']:
-                    leveldata['standing_on'] = 'Flamethrower'
 
                 # Assess valid inputs
                 if step in leveldata['control_scheme']:
@@ -322,8 +294,8 @@ def move_check(level, leveldata, tile_to_move):
         else:
             return (level, leveldata)
 
-    elif target_tile == rock:
-        return move_rock(level, leveldata, tile_to_move) # Runs rock pushing command
+    elif target_tile in pushable:
+        return push(level, leveldata, tile_to_move) # Runs pushing command
     
     elif target_tile == mushroom:
         leveldata['mush_collected'] += 1
@@ -337,12 +309,13 @@ def move_check(level, leveldata, tile_to_move):
         endscreen(leveldata, level)
         
     else: # Empty tile, Laro moves as usual
-        level[r][c] = '.'
+        level[r][c] = leveldata['standing_on']
+        leveldata['standing_on'] = level[r1][c1]
         level[r1][c1] = 'L'
         leveldata['laro'] = (r1, c1)
         return (level, leveldata)
 
-def move_rock(level, leveldata, tile_to_move): 
+def push(level, leveldata, tile_to_move): 
 # Runs if you run into a rock to push it
     (r, c) = leveldata['laro'] 
     neighbors = {
@@ -353,18 +326,20 @@ def move_rock(level, leveldata, tile_to_move):
     }
     (r1, c1, r2, c2) = neighbors[tile_to_move] # 1 is the rock, 2 is the tile in front of the rock
     
+    tile_to_push = level[r1][c1]
+
     if not out_of_borders(r2, c2, leveldata['borders']):
         return (level, leveldata)
 
     tile_in_front = level[r2][c2]
     
-    if tile_in_front in (tree, rock, axe, fire, mushroom):
+    if tile_in_front not in (empty, water, paved):
         return (level, leveldata) # Doesn't push if the tile the rock is going to is an object
     
     elif tile_in_front == water:
         level[r][c] = '.'
         level[r1][c1] = 'L'
-        level[r2][c2] = '_'
+        if tile_to_push == rock: level[r2][c2] = '_'
         leveldata['laro'] = (r1, c1)
         leveldata['paved'] = leveldata['paved'] + ((r2, c2),)
         return (level, leveldata)
@@ -372,19 +347,19 @@ def move_rock(level, leveldata, tile_to_move):
     else: # Empty tile; rock can be pushed
         level[r][c] = '.'
         level[r1][c1] = 'L'
-        level[r2][c2] = 'R'
+        level[r2][c2] = tile_to_push
         leveldata['laro'] = (r1, c1)
         return (level, leveldata)
 
 def pick_up(leveldata): 
 # Processes picking up items (adding them to laro's inventory and removing the item's coords from leveldata)
-    if leveldata['standing_on'] == 'Axe':
+    if leveldata['standing_on'] == axe:
         leveldata['holding'] = 'Axe'
-        leveldata['axe'] = [x for x in leveldata['axe'] if x != leveldata['laro']]
-        
-    elif leveldata['standing_on'] == 'Flamethrower':
+
+    elif leveldata['standing_on'] == fire:
         leveldata['holding'] = 'Flamethrower'
-        leveldata['fire'] = [x for x in leveldata['fire'] if x != leveldata['laro']]
+
+    leveldata['standing_on'] = empty
     return leveldata
 
 def use_item(level, leveldata, next_tile):
@@ -405,7 +380,7 @@ def flamethrower(level, leveldata, r, c, trees):
     neighbors = ((r+1, c), (r-1, c), (r, c+1), (r, c-1))
     level[r][c] = '.'
     valid_neighbors = tuple((rx, cx) for rx, cx in neighbors if out_of_borders(rx, cx, leveldata['borders']))
-    tree_neighbors = tuple((rx, cx) for rx, cx in valid_neighbors if level[rx][cx] == 'T')
+    tree_neighbors = tuple((rx, cx) for rx, cx in valid_neighbors if level[rx][cx] in flammable)
     if not tree_neighbors:
         return trees
     else:
@@ -425,10 +400,6 @@ def endscreen(leveldata, level):
     clear()
     for r, c in leveldata['paved']:
         if level[r][c] == '.': level[r][c] = '_'
-    for r, c in leveldata['axe']:
-        if level[r][c] == '.': level[r][c] = 'x'
-    for r, c in leveldata['fire']:
-        if level[r][c] == '.': level[r][c] = '*'
     level = [''.join(Ui[x] for x in y) for y in level]
     level = '\n'.join(level)
     if len(sys.argv) >= 7: 
@@ -479,21 +450,23 @@ PRESS [Q] TO QUIT
                 os.system('clear')
                 print(level + '\n')
                 leaderboard(name, leveldata['move_count'])
-                letter = input(f'''\
+                while True:
+                    letter = input(f'''\
 
 PRESS [!] TO RESET
 PRESS [Q] TO QUIT
 
 ''')
 
-                if letter.lower() == '!': 
-                    leveldata = {}
-                    for x in LEVELDATA:
-                        leveldata[x] = LEVELDATA[x]
-                    move(LEVEL, leveldata)
-                if letter.lower() == 'q':
-                    clear()
-                    quit()
+                    if letter.lower() == '!': 
+                        leveldata = {}
+                        for x in LEVELDATA:
+                            leveldata[x] = LEVELDATA[x]
+                        move(LEVEL, leveldata)
+                    if letter.lower() == 'q':
+                        clear()
+                        quit()
+                    else: print('Invalid input')
 
 def leaderboard(name, score):
     if len(sys.argv) >= 3: ld_file = f'{sys.argv[2]}_leaderboard.txt'
@@ -556,29 +529,13 @@ def move_w_steps(level, leveldata, steps):
         clear()
         (laro_r, laro_c) = leveldata['laro']
 
-        # Check if Laro is on an item
-        if (laro_r, laro_c) in leveldata['axe']:
-            leveldata['standing_on'] = 'axe'
-        elif (laro_r, laro_c) in leveldata['fire']: 
-             leveldata['standing_on'] = 'flamethrower'
-        else:
-            leveldata['standing_on'] = ''
-
         #
         for r, c in leveldata['paved']:
             if levelgrid[r][c] == '.':
                 levelgrid[r][c] = '_'
-        for r, c in leveldata['axe']:
-            if levelgrid[r][c] == '.':
-                levelgrid[r][c] = 'x'
-        for r, c in leveldata['fire']:
-            if levelgrid[r][c] == '.':
-                levelgrid[r][c] = '*'
         if leveldata['mush_collected'] == leveldata['mush_total']: break
         if d.isalpha():
             (laro_r, laro_c) = leveldata['laro']
-            if (laro_r, laro_c) in leveldata['axe']: leveldata['standing_on'] = 'Axe'
-            elif (laro_r, laro_c) in leveldata['fire']: leveldata['standing_on'] = 'Flamethrower'
             if d.upper() in leveldata['control_scheme']: # Runs if a valid direction is inputted
                 (level, leveldata) = move_check(levelgrid, leveldata, d.upper())
             elif d.lower() == 'p': # Pickup
@@ -609,3 +566,4 @@ def write_results(level, leveldata):
 
 if len(sys.argv) <= 3: move(lv, lvd)
 else: move_w_steps(lv, lvd, sys.argv[4])
+
