@@ -37,6 +37,7 @@ Ui = {".": '  ',
     "x": '🪓',
     "*": '🔥',
     "=": '📦',
+    "#": '🧱',
     "Axe": '🪓',
     "Flamethrower": '🔥'}
 
@@ -51,6 +52,7 @@ paved = "_"
 axe = "x"
 fire = "*"
 crate = "="
+wall = "#"
 
 # Item attributes
 pushable = (rock, crate)
@@ -182,7 +184,15 @@ for x in LEVELDATA:
     lvd[x] = LEVELDATA[x]
 
 
+
+
 def move(level: str, leveldata: dict) -> None:
+    
+    def print_to_terminal(): # Local func to print to terminal
+        level = [''.join(Ui[x] for x in y) for y in levelgrid]
+        level = '\n'.join(level)
+        print(level + '\n')
+        
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     while True:
@@ -197,9 +207,7 @@ def move(level: str, leveldata: dict) -> None:
         if leveldata['mush_collected'] == leveldata['mush_total']:
             endscreen(leveldata, levelgrid)
         # Print to terminal
-        level = [''.join(Ui[x] for x in y) for y in levelgrid]
-        level = '\n'.join(level)
-        print(level + '\n')
+        print_to_terminal()
         # Change pickup button text based on current holding and stood-on items
         (pickup_info, item) = ("", leveldata['standing_on'])
         if leveldata['standing_on'] != empty:
@@ -226,13 +234,21 @@ def move(level: str, leveldata: dict) -> None:
 
 Enter your next move/s: ''')
 
+        if len(steps) == 1:
+            animation_delay = False
+        else:
+            animation_delay = True
+            
+
         # Run step by step
         for step in steps:
-            clear()
             (laro_r, laro_c) = leveldata['laro']
-
-            print('\n'.join([''.join(Ui[x] for x in y) for y in levelgrid]))
-            sleep(delay)
+            
+            clear()
+            print_to_terminal()
+            if animation_delay:
+                sleep(delay)
+                
             step = step.upper()
             if step.isalpha():
 
@@ -259,9 +275,9 @@ Enter your next move/s: ''')
             else:
                 break
 
-
+# Str tile_to_move is a control key
+# Dict neighbors has control keys as keys, and new tile positions from those keys as values
 def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
-    # Checks the tile Laro is about to move into, runs different commands depending on what laro runs into
     leveldata['move_count'] += 1
     (r, c) = leveldata['laro']
     neighbors = {
@@ -269,6 +285,7 @@ def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
         leveldata['control_scheme'][2]: (r+1, c),
         leveldata['control_scheme'][1]: (r, c-1),
         leveldata['control_scheme'][3]: (r, c+1)}
+
     # Tile Laro is about to move to, used to check what kind of tile laro is about to run to
     (r1, c1) = neighbors[tile_to_move]
     if not out_of_borders(r1, c1, leveldata['borders']):
@@ -277,19 +294,24 @@ def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
     target_tile = level[r1][c1]
 
     if target_tile == tree:
-        if leveldata['holding']:
-            return use_item(level, leveldata, (r1, c1))  # Runs in case Laro has an item
+        if leveldata['holding']: # Runs use_item() if holding an item
+            return use_item(level, leveldata, (r1, c1))
         else:
             return (level, leveldata)
 
-    elif target_tile in pushable:
-        return push(level, leveldata, tile_to_move)  # Runs pushing command
+    elif target_tile in pushable: # Runs push() command
+        return push(level, leveldata, tile_to_move)  
+
+    elif target_tile == wall: # Nothing happens for walls
+        return (level, leveldata)
+    
     elif target_tile == mushroom:
         leveldata['mush_collected'] += 1
         level[r][c] = '.'
         level[r1][c1] = 'L'
         leveldata['laro'] = (r1, c1)
         return (level, leveldata)
+    
     elif target_tile == water:
         level[r][c] = '.'
         endscreen(leveldata, level)
@@ -301,9 +323,8 @@ def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
         leveldata['laro'] = (r1, c1)
         return (level, leveldata)
 
-
+# Edits leveldata to return outcome of pushing a pushable object
 def push(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
-    # Runs if you run into a rock to push it
     (r, c) = leveldata['laro']
     neighbors = {
         leveldata['control_scheme'][0]: (r-1, c, r-2, c),
@@ -348,19 +369,29 @@ def pick_up(leveldata: dict) -> dict:
     return leveldata
 
 
+# Applies held item's effects to a target tile (and other tiles i.e. flamethrower)
 def use_item(level: str, leveldata: dict, next_tile: tuple) -> (str, dict):
     (r1, c1) = next_tile
-    if leveldata['holding'] == 'Axe':
-        level[r1][c1] = '.'
-    elif leveldata['holding'] == 'Flamethrower':
+    (laro_r, laro_c) = leveldata['laro']
+    held_item = leveldata['holding']
+    
+    if held_item == 'Axe':
+        level[r1][c1] = 'L'
+        level[laro_r][laro_c] = '.'
+        
+    elif held_item == 'Flamethrower':
         for rx, cx in flamethrower(level, leveldata, r1, c1, frozenset()):
             level[rx][cx] = '.'
+        level[r1][c1] = 'L'
+        level[laro_r][laro_c] = '.'
+            
     leveldata['holding'] = ''
+    leveldata['laro'] = (r1, c1)
     return (level, leveldata)
 
-
+# Returns frozenset of trees
+# Used in use_item() to turn affected tree tiles into empty tiles
 def flamethrower(level: str, leveldata: dict, r: int, c: int, trees: frozenset) -> frozenset:
-    # FIXED, returns a frozenset of coords of all trees adjacent to (r, c)
     neighbors = ((r+1, c), (r-1, c), (r, c+1), (r, c-1))
     level[r][c] = '.'
     valid_neighbors = tuple((rx, cx) for rx, cx in neighbors if out_of_borders(rx, cx, leveldata['borders']))
@@ -370,15 +401,12 @@ def flamethrower(level: str, leveldata: dict, r: int, c: int, trees: frozenset) 
     else:
         return frozenset().union(x for rx, cx in tree_neighbors for x in flamethrower(level, leveldata, rx, cx, frozenset((*trees, (r, c)))))
 
-
 def out_of_borders(r: int, c: int, borders: tuple) -> bool:
     (rb, cb) = borders
     return not (r >= rb or c >= cb or r < 0 or c < 0)
 
-
+# Triggered on both win/lose conditions (death, all mushrooms collected)
 def endscreen(leveldata: dict, level: str) -> None:
-    # Runs when you encounter an end state (laro dies or you collect all mushies)
-    # Also appears the board state after the game ends
     clear()
     for r, c in leveldata['paved']:
         if level[r][c] == '.':
@@ -537,9 +565,8 @@ def move_w_steps(level: str, leveldata: dict, steps: str) -> None:
     level = '\n'.join(level)
     write_results(level, leveldata)
 
-
+# Creates .txt file of the outcome of a game with initial steps in terminal call
 def write_results(level: str, leveldata: dict) -> None:
-    # Writes the results in the output file
     status = 'CLEAR' if leveldata['mush_collected'] == leveldata['mush_total'] else 'NOT CLEAR'
     with open(sys.argv[6], 'w', encoding='utf-8') as f:
         f.write(status)
