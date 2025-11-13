@@ -104,15 +104,21 @@ def print_to_terminal(levelgrid: list) -> None:
 
 def main() -> (str, str):
     # Checks if there is a level inputted along with the command, loads the demo otherwise
-    if len(sys.argv) >= 3:
-        try:
-            return (pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"), sys.argv[2])
-        except FileNotFoundError:
-            print('Level file not found')
-            sys.exit()
-    else:
-        return (DEMOLEVEL, 'demo_level.txt')
-
+    (LEVEL, LEVEL_NAME, STRING_OF_MOVES, OUTPUT_FILE) = ('', '', '', '')
+    for arg in range(len(sys.argv)):
+        if sys.argv[arg] == '-f':
+            LEVEL_NAME = sys.argv[arg+1]
+            try:
+                LEVEL = pathlib.Path(LEVEL_NAME).read_text(encoding="utf-8")
+            except FileNotFoundError:
+                print('Level file not found')
+                sys.exit()
+        elif sys.argv[arg] == '-m':
+            STRING_OF_MOVES = sys.argv[arg+1]
+        elif sys.argv[arg] == '-o':
+            OUTPUT_FILE = sys.argv[arg+1]
+    if not LEVEL: (LEVEL, LEVEL_NAME) = (DEMOLEVEL, 'demo_level.txt')
+    return (LEVEL, LEVEL_NAME, STRING_OF_MOVES, OUTPUT_FILE)
 
 # Leaderboards per level are stored in a separate .txt file
 # Entries are stored as: NAME, MOVES, RANK
@@ -152,6 +158,7 @@ RANK    NAME            MOVES''')
 # Reads the level and makes leveldata
 def create_leveldata(level: str) -> dict:
     levelgrid = level.split('\n')
+    invalid = False
     result = {
         'borders': (0, 0),
         'laro': (0, 0),
@@ -174,23 +181,25 @@ def create_leveldata(level: str) -> dict:
             elif tile == 'L':
                 result['laro'] = (i, j)
                 result['laro_intial'] = (i, j)
+            elif tile == paved: result['paved'] = (*result['paved'], (i, j))
     control_scheme_choice = {
         'w': ('W', 'A', 'S', 'D'),
         'u': ('U', 'L', 'D', 'R')}
-    clear()
-    while True:
-        choice = input(pathlib.Path("menu.txt").read_text(encoding='utf-8'))
-        if choice in {'w', 'W', 'u', 'U'}:
-            result['control_scheme'] = control_scheme_choice[choice.lower()]
-            break
-        if choice.lower() == "q":
+    if STRING_OF_MOVES: result['control_scheme'] = control_scheme_choice['w']
+    else:
+        while True:
             clear()
-            sys.exit()
-        elif choice.lower() == "l":
-            show_leaderboard()
-            sys.exit()
-        else:
-            print('Invalid input. Try again')
+            choice = input(pathlib.Path("menu.txt").read_text(encoding='utf-8'))
+            if invalid: print('Invalid input')
+            if choice in {'w', 'W', 'u', 'U'}:
+                result['control_scheme'] = control_scheme_choice[choice.lower()]
+                break
+            if choice.lower() == "q":
+                clear()
+                sys.exit()
+            elif choice.lower() == "l":
+                show_leaderboard()
+                sys.exit()
     return result
 
 
@@ -309,8 +318,9 @@ def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
     # Now check for working itemless conditions
     elif target_tile == mushroom:
         leveldata['mush_collected'] += 1
-        level[r][c] = '.'
+        level[r][c] = leveldata['standing_on']
         level[r1][c1] = 'L'
+        leveldata['standing_on'] = '.'
         leveldata['laro'] = (r1, c1)
         return (level, leveldata)
 
@@ -342,8 +352,12 @@ def push(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
         return (level, leveldata)
 
     tile_in_front = level[r2][c2]
-    if tile_in_front not in {empty, water, paved}:
-        return (level, leveldata)  # Doesn't push if the tile the rock is going to is an object
+    if tile_in_front in {empty, paved}: # Moves if the tile is valid
+        level[r][c] = leveldata['standing_on']
+        leveldata['standing_on'] = '.'
+        level[r1][c1] = 'L'
+        level[r2][c2] = tile_to_push
+        leveldata['laro'] = (r1, c1)
     elif tile_in_front == water:
         level[r][c] = '.'
         level[r1][c1] = 'L'
@@ -351,13 +365,7 @@ def push(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
             level[r2][c2] = '_'
         leveldata['laro'] = (r1, c1)
         leveldata['paved'] += ((r2, c2),)
-        return (level, leveldata)
-    else:  # Empty tile; rock can be pushed
-        level[r][c] = '.'
-        level[r1][c1] = 'L'
-        level[r2][c2] = tile_to_push
-        leveldata['laro'] = (r1, c1)
-        return (level, leveldata)
+    return (level, leveldata)
 
 
 def pick_up(leveldata: dict) -> dict:
@@ -390,17 +398,20 @@ def use_item(level: str, leveldata: dict, next_tile: tuple) -> (str, dict):
 
     elif held_item == 'Flamethrower':
         affected_tiles = flamethrower(level, leveldata, r1, c1, frozenset())
-        for rx, cx in affected_tiles:
-            level[rx][cx] = fire  # Convert the tiles to fire for "animation"
-        clear()
-        print_to_terminal(level)
-        sleep(delay*5)
+        if not STRING_OF_MOVES: # Disables animation when running move_w_steps()
+            for rx, cx in affected_tiles:
+                level[rx][cx] = fire  # Convert the tiles to fire for "animation"
+                clear()
+                print_to_terminal(level)
+                sleep(delay/10)
         for rx, cx in affected_tiles:
             level[rx][cx] = empty  # Actual tile representation
 
     # In every item case, the target tile becomes empty and Laro goes to it
+    
     level[r1][c1] = laro
-    level[laro_r][laro_c] = empty
+    level[laro_r][laro_c] = leveldata['standing_on']
+    leveldata['standing_on'] = empty
 
     leveldata['holding'] = ''
     leveldata['laro'] = (r1, c1)
@@ -426,19 +437,20 @@ def out_of_borders(r: int, c: int, borders: tuple) -> bool:
 
 # Triggered on both win/lose conditions (death, all mushrooms collected)
 def endscreen(leveldata: dict, level: str) -> None:
-    clear()
     for r, c in leveldata['paved']:
         if level[r][c] == '.':
             level[r][c] = '_'
     level = [''.join(Ui[x] for x in y) for y in level]
     level = '\n'.join(level)
-    if len(sys.argv) >= 7:
+    if OUTPUT_FILE:
         write_results(level, leveldata)
         sys.exit()
-    print(level)
     is_win = leveldata['mush_collected'] == leveldata['mush_total']
-    if is_win:
-        letter = input(f'''\
+    while True:
+        clear()
+        print(level)
+        if is_win:
+            letter = input(f'''\
 
 YOU WON!
 
@@ -451,8 +463,8 @@ PRESS [Q] TO QUIT
 PRESS [Y] TO SUBMIT SCORE
 
 ''')
-    else:
-        letter = input(f'''\
+        else:
+            letter = input(f'''\
 YOU DIED...
 
 Game ended in {leveldata['move_count']} move(s)
@@ -462,43 +474,43 @@ Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushroo
 PRESS [!] TO RESET
 PRESS [Q] TO QUIT
 
-''')
+    ''')
 
-    if letter.lower() == '!':
-        leveldata = {}
-        for x in LEVELDATA:
-            leveldata[x] = LEVELDATA[x]
-        move(LEVEL, leveldata)
-    if letter.lower() == 'q':
-        clear()
-        sys.exit()
-    if letter.lower() == 'y' and is_win:
-        while True:
-            name = input('\nEnter your name (Max of 8 characters): \n')
-            if len(name) < 0 or len(name) > 8:
-                print('Invalid name')
-            else:
-                clear()
-                print(level + '\n')
-                leaderboard(name, leveldata['move_count'])
-                while True:
-                    letter = input('''\
+        if letter.lower() == '!':
+            leveldata = {}
+            for x in LEVELDATA:
+                leveldata[x] = LEVELDATA[x]
+            move(LEVEL, leveldata)
+        if letter.lower() == 'q':
+            clear()
+            sys.exit()
+        if letter.lower() == 'y' and is_win:
+            while True:
+                name = input('\nEnter your name (Max of 8 characters): \n')
+                if len(name) < 0 or len(name) > 8:
+                    print('Invalid name')
+                else:
+                    clear()
+                    print(level + '\n')
+                    leaderboard(name, leveldata['move_count'])
+                    while True:
+                        letter = input('''\
 
 PRESS [!] TO RESET
 PRESS [Q] TO QUIT
 
 ''')
 
-                    if letter.lower() == '!':
-                        leveldata = {}
-                        for x in LEVELDATA:
-                            leveldata[x] = LEVELDATA[x]
-                        move(LEVEL, leveldata)
-                    if letter.lower() == 'q':
-                        clear()
-                        sys.exit()
-                    else:
-                        print('Invalid input')
+                        if letter.lower() == '!':
+                            leveldata = {}
+                            for x in LEVELDATA:
+                                leveldata[x] = LEVELDATA[x]
+                            move(LEVEL, leveldata)
+                        if letter.lower() == 'q':
+                            clear()
+                            sys.exit()
+                        else:
+                            print('Invalid input')
 
 
 def leaderboard(name: str, score: int) -> None:
@@ -584,7 +596,7 @@ def move_w_steps(level: str, leveldata: dict, steps: str) -> None:
 # Creates .txt file of the outcome of a game with initial steps in terminal call
 def write_results(level: str, leveldata: dict) -> None:
     status = 'CLEAR' if leveldata['mush_collected'] == leveldata['mush_total'] else 'NOT CLEAR'
-    with open(sys.argv[6], 'w', encoding='utf-8') as f:
+    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         f.write(status)
         f.write('\n' + level)
         f.write('\n' + f'Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushroom/s')
@@ -606,7 +618,7 @@ T..R...R~~T
 T.......~+T
 TTTTTTTTTTT'''
 
-(LEVEL, LEVEL_NAME) = main()
+(LEVEL, LEVEL_NAME, STRING_OF_MOVES, OUTPUT_FILE) = main()
 LEVELDATA = create_leveldata(LEVEL)
 
 lv = LEVEL
@@ -616,9 +628,9 @@ for x in LEVELDATA:
     lvd[x] = LEVELDATA[x]
 
 
-if len(sys.argv) <= 3:
+if not STRING_OF_MOVES and not OUTPUT_FILE:
     move(lv, lvd)
 else:
-    move_w_steps(lv, lvd, sys.argv[4])
+    move_w_steps(lv, lvd, STRING_OF_MOVES)
 
 # -----------------------------------------
