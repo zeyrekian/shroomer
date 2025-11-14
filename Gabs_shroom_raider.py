@@ -123,11 +123,11 @@ def main() -> (str, str):
 # Leaderboards per level are stored in a separate .txt file
 # Entries are stored as: NAME, MOVES, RANK
 def show_leaderboard() -> None:
-    if len(sys.argv) >= 3:
-        level_name = sys.argv[2]
-        ld_file = f'{level_name}_leaderboard.txt'
-    else:
-        ld_file = 'demo_level_leaderboard.txt'
+    try:
+        os.mkdir('leaderboards')
+    except FileExistsError: 
+        pass
+    ld_file = os.path.join('leaderboards', f'{LEVEL_RAW}_leaderboard.txt')
     try:
         leaderboard_raw = pathlib.Path(ld_file).read_text(encoding="utf-8")
         if not leaderboard_raw:
@@ -437,14 +437,14 @@ def out_of_borders(r: int, c: int, borders: tuple) -> bool:
 
 # Triggered on both win/lose conditions (death, all mushrooms collected)
 def endscreen(leveldata: dict, level: str) -> None:
+    if OUTPUT_FILE:
+        write_results(level, leveldata)
+        sys.exit()
     for r, c in leveldata['paved']:
         if level[r][c] == '.':
             level[r][c] = '_'
     level = [''.join(Ui[x] for x in y) for y in level]
     level = '\n'.join(level)
-    if OUTPUT_FILE:
-        write_results(level, leveldata)
-        sys.exit()
     is_win = leveldata['mush_collected'] == leveldata['mush_total']
     while True:
         clear()
@@ -514,9 +514,14 @@ PRESS [Q] TO QUIT
 
 
 def leaderboard(name: str, score: int) -> None:
-    ld_file = f'{sys.argv[2]}_leaderboard.txt' if len(sys.argv) >= 3 else 'demo_level_leaderboard.txt'
     try:
-        leaderboard_raw = pathlib.Path(ld_file).read_text(encoding="utf-8")
+        os.mkdir('leaderboards')
+    except FileExistsError: 
+        pass
+    l_path = os.path.join('leaderboards', f'{LEVEL_RAW}_leaderboard.txt')
+    try:
+        with open(l_path, 'r') as f:
+            leaderboard_raw = f.read()
         if not leaderboard_raw:
             leaderboard = {name: (score, 0)}
         else:
@@ -543,8 +548,7 @@ RANK    NAME            MOVES''')
         current_name = f"'{nm}', {moves}, {s}"
         new_ld.append(current_name)
     new_ld = '\n'.join(new_ld)
-    pathlib.Path(ld_file).write_text(new_ld, encoding='utf-8')
-
+    with open(l_path, 'w') as f: f.write(new_ld)
 
 def sort_leaderboard(leaderboard: dict) -> list:
     scores = frozenset(leaderboard[x][0] for x in leaderboard)
@@ -595,8 +599,15 @@ def move_w_steps(level: str, leveldata: dict, steps: str) -> None:
 
 # Creates .txt file of the outcome of a game with initial steps in terminal call
 def write_results(level: str, leveldata: dict) -> None:
+    level = [''.join(x for x in y) for y in level]
+    level = '\n'.join(level)
     status = 'CLEAR' if leveldata['mush_collected'] == leveldata['mush_total'] else 'NOT CLEAR'
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    try:
+        os.mkdir('results')
+    except FileExistsError: 
+        pass
+    o_path = os.path.join('results', f'{OUTPUT_FILE}')
+    with open(o_path, 'w') as f:
         f.write(status)
         f.write('\n' + level)
         f.write('\n' + f'Collected {leveldata['mush_collected']} out of {leveldata['mush_total']} mushroom/s')
@@ -619,6 +630,8 @@ T.......~+T
 TTTTTTTTTTT'''
 
 (LEVEL, LEVEL_NAME, STRING_OF_MOVES, OUTPUT_FILE) = main()
+
+LEVEL_RAW = LEVEL_NAME.split('/')[-1]
 LEVELDATA = create_leveldata(LEVEL)
 
 lv = LEVEL
