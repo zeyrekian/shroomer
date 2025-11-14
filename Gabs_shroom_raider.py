@@ -325,7 +325,8 @@ def move_check(level: str, leveldata: dict, tile_to_move: str) -> (str, dict):
         return (level, leveldata)
 
     elif target_tile == water:
-        level[r][c] = '.'
+        level[r][c] = leveldata['standing_on']
+        leveldata['standing_on'] = empty
         endscreen(leveldata, level)
 
     else:  # Empty tile, Laro moves as usual
@@ -438,6 +439,8 @@ def out_of_borders(r: int, c: int, borders: tuple) -> bool:
 # Triggered on both win/lose conditions (death, all mushrooms collected)
 def endscreen(leveldata: dict, level: str) -> None:
     if OUTPUT_FILE:
+        level = [''.join(x for x in y) for y in level]
+        level = '\n'.join(level)
         write_results(level, leveldata)
         sys.exit()
     for r, c in leveldata['paved']:
@@ -571,8 +574,6 @@ def move_w_steps(level: str, leveldata: dict, steps: str) -> None:
     levelgrid = level.split('\n')
     levelgrid = [list(x) for x in levelgrid]
     for d in steps:
-        clear()
-
         for r, c in leveldata['paved']:
             if levelgrid[r][c] == '.':
                 levelgrid[r][c] = '_'
@@ -599,8 +600,6 @@ def move_w_steps(level: str, leveldata: dict, steps: str) -> None:
 
 # Creates .txt file of the outcome of a game with initial steps in terminal call
 def write_results(level: str, leveldata: dict) -> None:
-    level = [''.join(x for x in y) for y in level]
-    level = '\n'.join(level)
     status = 'CLEAR' if leveldata['mush_collected'] == leveldata['mush_total'] else 'NOT CLEAR'
     try:
         os.mkdir('results')
